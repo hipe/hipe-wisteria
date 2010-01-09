@@ -32,6 +32,7 @@ div.clear{
 }
 .square{
   background-color: green;
+  background: green; /**/
   color: #000;
   z-index: 2;
   position: absolute;
@@ -39,3 +40,10 @@ div.clear{
 #default-canvas-wrapper{
   border: 1px solid green;
 }
+
+
+
+
+
+#resizable { width: 150px; height: 150px; padding: 0.5em; }
+#resizable h3 { text-align: center; margin: 0; }

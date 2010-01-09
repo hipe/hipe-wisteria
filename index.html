@@ -5,17 +5,23 @@
     <script type='text/javascript' src='js/jquery/latest.js' ></script>
     <script type="text/javascript" src="js/jquery/latest/ui/ui.core.js"></script>
     <script type="text/javascript" src="js/jquery/latest/ui/ui.draggable.js"></script>
+    <script type="text/javascript" src="js/jquery/latest/ui/ui.resizable.js"></script>
+	  <link type="text/css" href="js/jquery/tmp.jq/development-bundle/themes/base/ui.all.css" rel="stylesheet" />
     <script src='js/default.js' type='text/javascript'></script>
     <link href='css/default.css' rel='stylesheet' type='text/css' />
   </head>
   <body>
+    <div id="resizable" class="ui-widget-content">
+      <h3 class="ui-widget-header">Resizable</h3>
+    </div>
+
     <div id='default-canvas-wrapper'>
       <div id='width-registration' class='terminal square'>_width-registration__<br/>_height-registration_</div>
       <div class='clear'></div>
       <div class='terminal square' id="grid">======================================</div>
       <canvas class='terminal background-canvas' id='default-canvas' width='600' height='600'></canvas>
-      <div id='square' class='terminal square'>
-        <table class='default-table'>
+      <div id='square' class='ui-widget-content terminal square' style="border: 3px solid red">
+        <table class='default-table' >
           <tbody>
             <tr>
               <td class='tldrag'>+</td>
