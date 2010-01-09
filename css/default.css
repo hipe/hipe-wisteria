@@ -1,11 +1,19 @@
 .terminal{
   background-color: black;
   color: white;
-  whitespace: pre;
+  white-space: normal;
+  font-family: "Andale Mono", monospace;
 }
+#default-canvas-wrapper{
+  position: relative;
+}
+.default-table{
+ border-collapse: collapse; 
+}
+
 #square{
   position: absolute;
-  background-color: #abc;
+  background-color: #ace;
   color: #000;
   left: 10px;
   top: 10px;
