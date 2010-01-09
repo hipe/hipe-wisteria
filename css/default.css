@@ -1,3 +1,6 @@
+div.clear{
+  clear:both;
+}
 .terminal{
   background-color: black;
   color: white;
@@ -5,16 +8,34 @@
   font-family: "Andale Mono", monospace;
 }
 #default-canvas-wrapper{
+ position: relative;
+ float: left;
+}
+.background-canvas{
   position: relative;
+  top: 0;
+  left: 0;
+  z-index: 1;
 }
 .default-table{
- border-collapse: collapse; 
+ border-collapse: collapse;
 }
-
-#square{
-  position: absolute;
-  background-color: #ace;
-  color: #000;
-  left: 10px;
+#grid{
+  top: 50px;
+}
+#width-registration{
   top: 10px;
+}
+#square{
+  left: 0px;
+  top: 100px;
+}
+.square{
+  background-color: green;
+  color: #000;
+  z-index: 2;
+  position: absolute;
+}
+#default-canvas-wrapper{
+  border: 1px solid green;
 }
