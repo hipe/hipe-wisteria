@@ -1,0 +1,12 @@
+.terminal{
+  background-color: black;
+  color: white;
+  whitespace: pre;
+}
+#square{
+  position: absolute;
+  background-color: #abc;
+  color: #000;
+  left: 10px;
+  top: 10px;
+}
