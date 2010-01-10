@@ -6,6 +6,7 @@ div.clear{
   color: white;
   white-space: normal;
   font-family: "Andale Mono", monospace;
+  font-size: 1.0em;
 }
 #default-canvas-wrapper{
  position: relative;
@@ -20,6 +21,11 @@ div.clear{
 .default-table{
  border-collapse: collapse;
 }
+.default-table td{
+  text-align: left;
+}
+.default-table td div.out{overflow:hidden; border: 1px solid orange;}
+.default-table td div.in{border: 1px solid red; float: left;}
 #grid{
   top: 50px;
 }
@@ -41,8 +47,11 @@ div.clear{
   border: 1px solid green;
 }
 
-
-
+.edrag{cursor: e-resize;  }
+.sedrag{cursor: se-resize;}
+.sdrag{ cursor: s-resize; }
+.swdrag{cursor: sw-resize;}
+.wdrag{ cursor: w-resize; }
 
 
 #resizable { width: 150px; height: 150px; padding: 0.5em; }

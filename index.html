@@ -6,6 +6,7 @@
     <script type="text/javascript" src="js/jquery/latest/ui/ui.core.js"></script>
     <script type="text/javascript" src="js/jquery/latest/ui/ui.draggable.js"></script>
     <script type="text/javascript" src="js/jquery/latest/ui/ui.resizable.js"></script>
+    <script type="text/javascript" src="js/resizable-table.js"></script>
 	  <link type="text/css" href="js/jquery/tmp.jq/development-bundle/themes/base/ui.all.css" rel="stylesheet" />
     <script src='js/default.js' type='text/javascript'></script>
     <link href='css/default.css' rel='stylesheet' type='text/css' />
@@ -19,53 +20,51 @@
       <div id='width-registration' class='terminal square'>_width-registration__<br/>_height-registration_</div>
       <div class='clear'></div>
       <div class='terminal square' id="grid">======================================</div>
-      <canvas class='terminal background-canvas' id='default-canvas' width='600' height='600'></canvas>
-      <div id='square' class='ui-widget-content terminal square' style="border: 3px solid red">
-        <table class='default-table' >
-          <tbody>
-            <tr>
-              <td class='tldrag'>+</td>
-              <td class='tdrag' colspan = '3'>-----------</td>
-              <td class='trdrag'>+<td>
-            <tr>
+      <canvas class='terminal background-canvas' id='default-canvas' width='1000' height='600'></canvas>
+      <table id='square' class='default-table terminal square' >
+        <tbody>
+          <tr>
+            <td class='nwdrag'>+</td>
+            <td class='ndrag' colspan = '3'><div class='out'><div class='in'>-----------</div></div></td>
+            <td class='nedrag'>+</td>
+          </tr>
 
-            <tr>
-              <td class='ldrag'>|</td>
-              <td>head1</td>
-              <td class='cdrag'>|</td>
-              <td>head2</td>
-              <td class='rdrag'>|</tr>
-            </tr>
-           <tr>
-              <td class='ldrag'>+</td>
-              <td colspan = '3'>-----------</td>
-              <td class='rdrag'>+<td>
-            <tr>
+          <tr>
+            <td class='wdrag'>|</td>
+            <td><div class='out' id='a'><div class='in' id='b'>head1reallylong</div></td>
+            <td class='cdrag'>|</td>
+            <td><div class='out'><class='in'>head2</div></div></td>
+            <td class='edrag'>|</td>
+          </tr>
+         <tr>
+            <td class='wdrag'>+</td>
+            <td colspan = '3'><div class='out'><div class='in'>-----------</div></div></td>
+            <td class='edrag'>+</td>
+          </tr>
 
-            <tr>
-              <td class='ldrag'>|</td>
-              <td>cel1</td>
-              <td class='cdrag'>|</td>
-              <td>cel2</td>
-              <td class='rdrag'>|</tr>
-            </tr>
+          <tr>
+            <td class='wdrag'>|</td>
+            <td><div class='out'><div class='in'>cel1</td></div></td>
+            <td class='cdrag'>|</td>
+            <td><div class='out'><div class='in'>cel2</div></div></td>
+            <td class='edrag'>|</td>
+          </tr>
 
-            <tr>
-              <td class='ldrag'>|</td>
-              <td>cel1</td>
-              <td class='cdrag'>|</td>
-              <td>cel2</td>
-              <td class='rdrag'>|</tr>
-            </tr>
+          <tr>
+            <td class='wdrag'>|</td>
+            <td><div class='out'><div class='in'>cel3</td></div></td>
+            <td class='cdrag'>|</td>
+            <td><div class='out'><div class='in'>cel4</div></div></td>
+            <td class='edrag'>|</td>
+          </tr>
 
-            <tr>
-              <td class='bldrag'>+</td>
-              <td class='bdrag' colspan = '3'>-----------</td>
-              <td class='brdrag'>+<td>
-            <tr>
-          </tbody>
-        </table>
-      </div>
+          <tr>
+            <td class='swdrag'>+</td>
+            <td class='sdrag' colspan = '3'><div class='out'><div class='in'>-----------</div></div></td>
+            <td class='sedrag'>+</td>
+          </tr>
+        </tbody>
+      </table>
     </div>
   </body>
 </html>
