@@ -41,6 +41,7 @@ $.widget("ui.resizable_table", $.extend({}, $.ui.mouse, {
       },
       // distribute the new width evenly across columns
       changeWidthTo: function(newWidth){
+        puts('okz');        
         var delta = newWidth - this.width();
         var tds = $(this.element.find('tr')[1]).find('td');
         var last = ( this.numCols * 2 ) - 1;
@@ -60,7 +61,6 @@ $.widget("ui.resizable_table", $.extend({}, $.ui.mouse, {
         }
         // make sure snap is still ok after rounding, sacrificing accuracy of last column
         addThese[addThese.length - 1] -= ( deltaAfterRounding - delta );
-
         var newWidths = [];
         for(var i = 0; i < addThese.length; i++) {
           newWidths.push(widths[i] + addThese[i]);
@@ -78,31 +78,42 @@ $.widget("ui.resizable_table", $.extend({}, $.ui.mouse, {
             els.css('width', newWidths[j]);
           }
         }
-        //this.doBars(delta);
+        this.barsHack();
       },
-      doBars: function(delta){
-        var trs = this.element.find('tr');
-        firstRow = trs[0];
-        tds = $(firstRow).find('td');
+      barsHack: function(){        
+        var trs, firstRow, tds, barRows, topDivOut, topDivIn;
+        trs = this.element.find('tr');
+        tds = $(trs[0]).find('td');
         if (tds.length != 3) return;
-        var widthOfThings = $(tds[0]).width() + $(tds[2]).width();
-        if (delta!=0) {
-          wc = this.element.width() - this.oldWidth
-          // var oldInnerWidth = this.oldWidth - widthOfThings;
-          // var newInnerWidth = oldInnerWidth += (delta - 6);
+        topDivOut = $(tds[1]).find('div.out');
+        topDivIn =  topDivOut.find('div.in');
+        if (topDivOut.length==0 || topDivIn.length==0) return;
+        if (topDivIn.html().trim() == "") return;
+        if (topDivIn.width() >= topDivOut.width()) return; // no
+        var numAdded = 0;
+        var char = topDivIn.html().trim()[0];
+        barRows = [0, 2, trs.length-1];      
+        var addChar;        
+        addChar = function(){
+          puts('add');
+          var newHtml = topDivIn.html().trim()+char;          
+          for(var i in barRows){
+            var j = barRows[i];
+            var inDiv = $(trs[j]).find('div.in');
+            inDiv.html(newHtml);
+          }
+          if (topDivIn.width() < topDivOut.width()){
+            puts('again');
+            setTimeout(addChar,210);
+          }
         }
-        var barRows = [0,2, trs.length-1];
-        for(var i in barRows){
-          var j = barRows[i];
-          var outDiv = $(trs[j]).find('div.out');
-          outDiv.css('width', newInnerWidth);
-        }
+        setTimeout(addChar, 500);
       },
       cdrag: function(newX){
         var delta = newX - this.normalizeWith[0];
         if (Math.abs(delta) >= this.grid[0]){
           var snappedDelta = delta - (delta % this.grid[0]);
-          puts("sd: "+snappedDelta);
+          puts("sd:z "+snappedDelta);
           var parent = this.cdragHandle.parent();
           children = parent.children();
           for(var i = 0; i < children.length-1; i++){
