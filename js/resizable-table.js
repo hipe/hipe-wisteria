@@ -9,10 +9,12 @@ var parse = function(str){
 $.widget("ui.resizable_table", $.extend({}, $.ui.mouse, {
 
   tableStateConstructor : function(){
-    var constructor = function(element, grid){
+    var constructor = function(element, options){
       this.element = $(element);
-      this.grid = grid;
+      this.grid = options.grid;
+      this.options = options;
       this.numCols = ($(this.element.find('tr')[1]).find('td').size()-1) / 2;
+      this.initSeparatorRows(); 
     }
     constructor.prototype = {
       top :    function(){return parse(this.element.css('top'));},
@@ -40,8 +42,7 @@ $.widget("ui.resizable_table", $.extend({}, $.ui.mouse, {
 
       },
       // distribute the new width evenly across columns
-      changeWidthTo: function(newWidth){
-        puts('okz');        
+      changeWidthTo: function(newWidth){ 
         var delta = newWidth - this.width();
         var tds = $(this.element.find('tr')[1]).find('td');
         var last = ( this.numCols * 2 ) - 1;
@@ -78,36 +79,83 @@ $.widget("ui.resizable_table", $.extend({}, $.ui.mouse, {
             els.css('width', newWidths[j]);
           }
         }
-        this.barsHack();
+        if (delta > 0 && this.barHackRows.length > 0) {
+          this.extendBarHackRowContentIfNecessary();
+        }
       },
-      barsHack: function(){        
-        var trs, firstRow, tds, barRows, topDivOut, topDivIn;
-        trs = this.element.find('tr');
-        tds = $(trs[0]).find('td');
-        if (tds.length != 3) return;
-        topDivOut = $(tds[1]).find('div.out');
-        topDivIn =  topDivOut.find('div.in');
-        if (topDivOut.length==0 || topDivIn.length==0) return;
-        if (topDivIn.html().trim() == "") return;
-        if (topDivIn.width() >= topDivOut.width()) return; // no
-        var numAdded = 0;
-        var char = topDivIn.html().trim()[0];
-        barRows = [0, 2, trs.length-1];      
-        var addChar;        
-        addChar = function(){
-          puts('add');
-          var newHtml = topDivIn.html().trim()+char;          
-          for(var i in barRows){
-            var j = barRows[i];
-            var inDiv = $(trs[j]).find('div.in');
-            inDiv.html(newHtml);
-          }
-          if (topDivIn.width() < topDivOut.width()){
-            puts('again');
-            setTimeout(addChar,210);
+      rowMatchesSeparatorPattern: function(row){
+        var tds = row.find('td');
+        if (tds.length != 3) return false;
+        return true;  // @todo this might get false positives on single column tables!
+      },
+      separatorRowMatchesBarHackPattern: function(row){
+        return (row.find('td div.out div.in').html().trim().length >= 1); // @todo untested greater than one
+      },
+      establishSeparatorRows: function(){
+        var idxs = this.getPossibleSeparatorRowIndexes();
+        this.separatorRows = [];
+        this.barHackRows = [];
+        for(var i in idxs) {
+          var row = $(this.trs[idxs[i]]);
+          if (this.rowMatchesSeparatorPattern(row)){
+            this.separatorRows.push(row);
+            if (this.separatorRowMatchesBarHackPattern(row)){ 
+              this.barHackRows.push(row);
+            }
           }
         }
-        setTimeout(addChar, 500);
+        if (this.barHackRows.length > 0){
+          this.barHackRows = $(this.barHackRows);        
+          for(var i=0; i < this.barHackRows.length; i++){
+            var theTd = $($(this.barHackRows[i]).find('td')[1]);
+            this.barHackRows[i].theTd = theTd;
+            theTd.divOut = theTd.find('div.out');
+            var divIn = theTd.divOut.find('div.in');
+            theTd.divOut.divIn = divIn;
+            divIn.repeaterString = divIn.html().trim();            
+            divIn.html(divIn.repeaterString);
+            divIn.repeaterStringWidth = divIn.width();
+          }
+        }
+      },
+      getPossibleSeparatorRowIndexes: function(){
+        if (!this.possibleSeparatorRowIndexes) {
+          this.possibleSeparatorRowIndexes = [0,2];
+          if (this.trs.length > 3) {
+            this.possibleSeparatorRowIndexes.push(this.trs.length-1);
+          }
+        }
+        return this.possibleSeparatorRowIndexes;
+      },
+      initSeparatorRows: function(){
+        this.trs = this.element.find('tr');
+        this.establishSeparatorRows();
+        if (this.barHackRows.length > 0){
+          this.extendBarHackRowContentIfNecessary();
+        }
+      },
+      // we want the div.in to be as long or longer than div.out! (using overflow)
+      extendBarHackRowContentIfNecessary: function(){
+        var divOut, divIn, currWidth, targetWidth, factor, newHtml, numCharsToAdd, addThisString,
+          neededWidth;
+        for(var i=0; i < this.barHackRows.length; i++){        
+          divOut = this.barHackRows[i].theTd.divOut;
+          divIn = divOut.divIn;
+          outWidth = divOut.width();
+          inWidth = divIn.width();
+          divOut.css('width', outWidth); // "lock it down"
+          if ((outWidth-4) > inWidth) { // this will always be true unless we ever lock down the outer width @todo borders hac
+            neededWidth = outWidth - inWidth;
+            repeatNumTimes = Math.ceil(neededWidth / divIn.repeaterStringWidth);
+            addThisString = new Array(repeatNumTimes + 2).join(divIn.repeaterString);  
+            newHtml = divIn.html() + addThisString;
+            puts(i+") to get from "+inWidth+"px to "+outWidth+"px we will need "+neededWidth+
+              "px which we add with "+repeatNumTimes+" repeater strings (\""+ divIn.repeaterString+"\")");
+            divIn.html(newHtml);
+          } else {
+            puts(i+") not adding repeater strings.  threshold not reached (in: "+inWidth+"px out: "+outWidth+"px)");
+          }
+        }
       },
       cdrag: function(newX){
         var delta = newX - this.normalizeWith[0];
@@ -152,7 +200,7 @@ $.widget("ui.resizable_table", $.extend({}, $.ui.mouse, {
   _init: function() {
     T = this;
     this.handleNames = 'wdrag,swdrag,sdrag,sedrag,edrag,cdrag'
-    this.table =  new (this.tableStateConstructor())(this.element, this.options.grid);
+    this.table =  new (this.tableStateConstructor())(this.element, this.options);
     n = this.handleNames.split(",");
     this.handleElements = [];
     for(var i = 0; i < n.length; i++) {
