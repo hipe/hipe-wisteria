@@ -9,8 +9,8 @@ div.clear{
   font-size: 1.0em;
 }
 #default-canvas-wrapper{
- position: relative;
- float: left;
+  position: relative;
+  float: left;
 }
 .background-canvas{
   position: relative;
@@ -24,8 +24,8 @@ div.clear{
 .default-table td{
   text-align: left;
 }
-.default-table td div.out{overflow:hidden; border: 1px solid orange;}
-.default-table td div.in{border: 1px solid red; float: left;}
+.default-table td div.out{overflow:hidden; border: 0px solid orange;}
+.default-table td div.in{border: 0px solid red; float: left;}
 #grid{
   top: 50px;
 }
@@ -44,7 +44,7 @@ div.clear{
   position: absolute;
 }
 #default-canvas-wrapper{
-  border: 1px solid green;
+  border: 0px solid green;
 }
 
 .edrag{cursor: e-resize;  }
@@ -52,6 +52,7 @@ div.clear{
 .sdrag{ cursor: s-resize; }
 .swdrag{cursor: sw-resize;}
 .wdrag{ cursor: w-resize; }
+.cdrag{ cursor: col-resize;}
 
 
 #resizable { width: 150px; height: 150px; padding: 0.5em; }

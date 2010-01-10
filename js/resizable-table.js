@@ -1,5 +1,11 @@
 (function($) {
 
+var puts = console.log;
+var parse = function(str){
+  var capture = /^(\d+(?:\.\d+)?)px$/.exec(str);
+  return parseFloat(capture);
+};
+
 $.widget("ui.resizable_table", $.extend({}, $.ui.mouse, {
 
   tableStateConstructor : function(){
@@ -9,16 +15,12 @@ $.widget("ui.resizable_table", $.extend({}, $.ui.mouse, {
       this.numCols = ($(this.element.find('tr')[1]).find('td').size()-1) / 2;
     }
     constructor.prototype = {
-      top :    function(){return this.parse(this.element.css('top'));},
+      top :    function(){return parse(this.element.css('top'));},
       right :  function(){return this.left() + this.width();},
       bottom : function(){return this.top() + this.height();},
-      left :   function(){return this.parse(this.element.css('left'));},
+      left :   function(){return parse(this.element.css('left'));},
       width:   function(){return this.element.width();},
       height:  function(){return this.element.height();},
-      parse :  function(str){
-        var capture = /^(\d+(?:\.\d+)?)px$/.exec(str);
-        return parseFloat(capture);
-      },
       setRight: function(x){
         var delta = x - this.normalizeWith[0];
         if (Math.abs(delta) >= this.grid[0]){
@@ -86,21 +88,57 @@ $.widget("ui.resizable_table", $.extend({}, $.ui.mouse, {
         if (tds.length != 3) return;
         var widthOfThings = $(tds[0]).width() + $(tds[2]).width();
         var oldInnerWidth = this.oldWidth - widthOfThings;
-        var newInnerWidth = oldInnerWidth += (delta - 8);
+        var newInnerWidth = oldInnerWidth += (delta - 6);
         var barRows = [0,2, trs.length-1];
         for(var i in barRows){
           var j = barRows[i];
           var el = $(trs[j]).find('div.out');
-          console.log("tring to set nu inner width "+newInnerWidth+" to row "+j+" to "+el.length+" elements");
+          //console.log("tring to set nu inner width "+newInnerWidth+" to row "+j+" to "+el.length+" elements");
           el.css('width', newInnerWidth);
         }
-      }
+      },
+      cdrag: function(newX){
+        var delta = newX - this.normalizeWith[0];
+        if (Math.abs(delta) >= this.grid[0]){
+          var snappedDelta = delta - (delta % this.grid[0]);
+          var parent = this.cdragHandle.parent();
+          children = parent.children();
+          for(var i = 0; i < children.length; i++){
+            if (children[i] == this.cdragHandle[0]){
+              break;
+            }
+          }
+          if (i==0) return;
+          topRow = $(this.element.find('tr')[1]);
+          currLeftWidth =  $(topRow.find('td')[i-1]).width();
+          currRightWidth = $(topRow.find('td')[i+1]).width();
+          if (snappedDelta < 0 && currLeftWidth < this.grid[0]) return;
+          if (snappedDelta > 0 && currRightWidth < this.grid[0]) return;
+          if (snappedDelta < 0){
+            snappedDelta = Math.max(snappedDelta, (currLeftWidth * -1) + this.grid[0] );
+          } else {
+            snappedDelta = Math.min(snappedDelta, (currRightWidth) - this.grid[0] );
+          }
+          var trs = this.element.find('tr');
+          last = trs.length - 2;
+
+          for(var j=1; j<=last; j ++){
+            if (j==2) continue;
+            var tds = $(trs[j]).find('td');
+            leftOut  = $(tds[i-1]).find('div.out');
+            rightOut = $(tds[i+1]).find('div.out');
+            leftOut.css('width', currLeftWidth + snappedDelta);
+            rightOut.css('width', currRightWidth - snappedDelta);
+          }
+          this.normalizeWith[0] += snappedDelta;
+        }
+      },
     };
     return constructor;
   },
   _init: function() {
     T = this;
-    this.handleNames = 'wdrag,swdrag,sdrag,sedrag,edrag'
+    this.handleNames = 'wdrag,swdrag,sdrag,sedrag,edrag,cdrag'
     this.table =  new (this.tableStateConstructor())(this.element, this.options.grid);
     n = this.handleNames.split(",");
     this.handleElements = [];
@@ -119,9 +157,12 @@ $.widget("ui.resizable_table", $.extend({}, $.ui.mouse, {
   _mouseCapture: function(event) {
     for (var i in this.handleElements){
       if (this.handleElements[i] == event.target){
-        this.table.normalizeWith = [event.pageX, event.pageY];
-        currentHandle = this.handleElements[i];
+        var currentHandle = this.handleElements[i];
         this.currentAxis = /\b([a-z]+drag)\b/.exec($(currentHandle).attr('class'))[1];
+        if ('cdrag'==this.currentAxis){
+          this.table.cdragHandle = $(currentHandle);
+        }
+        this.table.normalizeWith = [event.pageX, event.pageY];
         return true;
       }
     }
@@ -131,6 +172,9 @@ $.widget("ui.resizable_table", $.extend({}, $.ui.mouse, {
     switch(this.currentAxis){
       case 'edrag':
         this.table.setRight(event.pageX);
+        break;
+      case 'cdrag':
+        this.table.cdrag(event.pageX);
         break;
     }
   }
