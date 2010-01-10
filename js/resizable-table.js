@@ -41,8 +41,7 @@ $.widget("ui.resizable_table", $.extend({}, $.ui.mouse, {
       },
       // distribute the new width evenly across columns
       changeWidthTo: function(newWidth){
-        this.oldWidth = this.width();
-        var delta = newWidth - this.oldWidth;
+        var delta = newWidth - this.width();
         var tds = $(this.element.find('tr')[1]).find('td');
         var last = ( this.numCols * 2 ) - 1;
         var widths = [];
@@ -79,7 +78,7 @@ $.widget("ui.resizable_table", $.extend({}, $.ui.mouse, {
             els.css('width', newWidths[j]);
           }
         }
-        this.doBars(delta);
+        //this.doBars(delta);
       },
       doBars: function(delta){
         var trs = this.element.find('tr');
@@ -87,31 +86,34 @@ $.widget("ui.resizable_table", $.extend({}, $.ui.mouse, {
         tds = $(firstRow).find('td');
         if (tds.length != 3) return;
         var widthOfThings = $(tds[0]).width() + $(tds[2]).width();
-        var oldInnerWidth = this.oldWidth - widthOfThings;
-        var newInnerWidth = oldInnerWidth += (delta - 6);
+        if (delta!=0) {
+          wc = this.element.width() - this.oldWidth
+          // var oldInnerWidth = this.oldWidth - widthOfThings;
+          // var newInnerWidth = oldInnerWidth += (delta - 6);
+        }
         var barRows = [0,2, trs.length-1];
         for(var i in barRows){
           var j = barRows[i];
-          var el = $(trs[j]).find('div.out');
-          //console.log("tring to set nu inner width "+newInnerWidth+" to row "+j+" to "+el.length+" elements");
-          el.css('width', newInnerWidth);
+          var outDiv = $(trs[j]).find('div.out');
+          outDiv.css('width', newInnerWidth);
         }
       },
       cdrag: function(newX){
         var delta = newX - this.normalizeWith[0];
         if (Math.abs(delta) >= this.grid[0]){
           var snappedDelta = delta - (delta % this.grid[0]);
+          puts("sd: "+snappedDelta);
           var parent = this.cdragHandle.parent();
           children = parent.children();
-          for(var i = 0; i < children.length; i++){
+          for(var i = 0; i < children.length-1; i++){
             if (children[i] == this.cdragHandle[0]){
               break;
             }
           }
-          if (i==0) return;
+          if (i==0 || i == children.length-1) return;
           topRow = $(this.element.find('tr')[1]);
-          currLeftWidth =  $(topRow.find('td')[i-1]).width();
-          currRightWidth = $(topRow.find('td')[i+1]).width();
+          currLeftWidth =  $(topRow.find('td')[i-1]).find('div.out').width();
+          currRightWidth = $(topRow.find('td')[i+1]).find('div.out').width();
           if (snappedDelta < 0 && currLeftWidth < this.grid[0]) return;
           if (snappedDelta > 0 && currRightWidth < this.grid[0]) return;
           if (snappedDelta < 0){

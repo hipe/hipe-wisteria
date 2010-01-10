@@ -24,8 +24,8 @@ div.clear{
 .default-table td{
   text-align: left;
 }
-.default-table td div.out{overflow:hidden; border: 0px solid orange;}
-.default-table td div.in{border: 0px solid red; float: left;}
+.default-table td div.out{overflow:hidden; border: 1px solid orange;}
+.default-table td div.in{border: 1px solid red; float: left;}
 #grid{
   top: 50px;
 }
@@ -44,14 +44,14 @@ div.clear{
   position: absolute;
 }
 #default-canvas-wrapper{
-  border: 0px solid green;
+  border: 1px solid green;
 }
 
 .edrag{cursor: e-resize;  }
-.sedrag{cursor: se-resize;}
+/*.sedrag{cursor: se-resize;}
 .sdrag{ cursor: s-resize; }
 .swdrag{cursor: sw-resize;}
-.wdrag{ cursor: w-resize; }
+.wdrag{ cursor: w-resize; }*/
 .cdrag{ cursor: col-resize;}
 
 
