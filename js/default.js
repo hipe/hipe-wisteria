@@ -4,6 +4,8 @@ jQuery(function(){
   var gridh = Math.ceil($('#width-registration').height()/2)
   $("#square").resizable_table({ grid: [gridw, gridh] });  /* must come before draggable.  why? */
   $("#square").draggable({ grid: [gridw,gridh], containment: 'parent'});
-	$("#resizable").resizable( );
- 
+  //$("#resizable").resizable( );
+  $('#default-canvas').arrows({grid: [gridw,gridh]});
+
+
 });

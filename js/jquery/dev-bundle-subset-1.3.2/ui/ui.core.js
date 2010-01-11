@@ -405,6 +405,7 @@ $.ui.mouse = {
 	},
 
 	_mouseDown: function(event) {
+
 		// don't let more than one widget handle mouseStart
 		// TODO: figure out why we have to use originalEvent
 		event.originalEvent = event.originalEvent || {};

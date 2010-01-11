@@ -1,6 +1,7 @@
 (function($) {
 
 var puts = console.log;
+
 var parse = function(str){
   var capture = /^(\d+(?:\.\d+)?)px$/.exec(str);
   return parseFloat(capture);
@@ -14,7 +15,7 @@ $.widget("ui.resizable_table", $.extend({}, $.ui.mouse, {
       this.grid = options.grid;
       this.options = options;
       this.numCols = ($(this.element.find('tr')[1]).find('td').size()-1) / 2;
-      this.initSeparatorRows(); 
+      this.initSeparatorRows();
     }
     constructor.prototype = {
       top :    function(){return parse(this.element.css('top'));},
@@ -42,7 +43,7 @@ $.widget("ui.resizable_table", $.extend({}, $.ui.mouse, {
 
       },
       // distribute the new width evenly across columns
-      changeWidthTo: function(newWidth){ 
+      changeWidthTo: function(newWidth){
         var delta = newWidth - this.width();
         var tds = $(this.element.find('tr')[1]).find('td');
         var last = ( this.numCols * 2 ) - 1;
@@ -64,7 +65,9 @@ $.widget("ui.resizable_table", $.extend({}, $.ui.mouse, {
         addThese[addThese.length - 1] -= ( deltaAfterRounding - delta );
         var newWidths = [];
         for(var i = 0; i < addThese.length; i++) {
-          newWidths.push(widths[i] + addThese[i]);
+          var newWidth = widths[i] + addThese[i];
+          if (newWidth < 0) return; // this might be overly strict? w/o this separator bars get messed up
+          newWidths.push(newWidth);
         }
         var trs =  this.element.find('tr');
         var last = trs.length - 2;
@@ -75,12 +78,17 @@ $.widget("ui.resizable_table", $.extend({}, $.ui.mouse, {
           if (i==2) continue;
           var tds = $(trs[i]).find('td');
           for(var j in newWidths){
+            //puts ("["+i+"]["+j+"] new width: "+newWidths[j]);
             var els = $(tds[j * 2 + 1]).find('div.out');
             els.css('width', newWidths[j]);
           }
         }
-        if (delta > 0 && this.barHackRows.length > 0) {
-          this.extendBarHackRowContentIfNecessary();
+        if (this.barHackRows.length > 0) {
+          if (delta > 0){
+            this.extendBarHackRowContentIfNecessary(deltaAfterRounding);
+          } else if (delta < 0) {
+            this.shortenBarHackRows(deltaAfterRounding);
+          }
         }
       },
       rowMatchesSeparatorPattern: function(row){
@@ -99,20 +107,20 @@ $.widget("ui.resizable_table", $.extend({}, $.ui.mouse, {
           var row = $(this.trs[idxs[i]]);
           if (this.rowMatchesSeparatorPattern(row)){
             this.separatorRows.push(row);
-            if (this.separatorRowMatchesBarHackPattern(row)){ 
+            if (this.separatorRowMatchesBarHackPattern(row)){
               this.barHackRows.push(row);
             }
           }
         }
         if (this.barHackRows.length > 0){
-          this.barHackRows = $(this.barHackRows);        
+          this.barHackRows = $(this.barHackRows);
           for(var i=0; i < this.barHackRows.length; i++){
             var theTd = $($(this.barHackRows[i]).find('td')[1]);
             this.barHackRows[i].theTd = theTd;
             theTd.divOut = theTd.find('div.out');
             var divIn = theTd.divOut.find('div.in');
             theTd.divOut.divIn = divIn;
-            divIn.repeaterString = divIn.html().trim();            
+            divIn.repeaterString = divIn.html().trim();
             divIn.html(divIn.repeaterString);
             divIn.repeaterStringWidth = divIn.width();
           }
@@ -131,29 +139,39 @@ $.widget("ui.resizable_table", $.extend({}, $.ui.mouse, {
         this.trs = this.element.find('tr');
         this.establishSeparatorRows();
         if (this.barHackRows.length > 0){
-          this.extendBarHackRowContentIfNecessary();
+          this.extendBarHackRowContentIfNecessary(0);
+        }
+      },
+      shortenBarHackRows: function(delta){
+        if (delta >= 0) return;
+        //puts("delta to shorten bar hack rows is "+delta+"px.");
+        for(var i=0; i < this.barHackRows.length; i++){
+          divOut = this.barHackRows[i].theTd.divOut;
+          divIn = divOut.divIn;
+          divOut.css('width', divOut.width() + delta);
         }
       },
       // we want the div.in to be as long or longer than div.out! (using overflow)
-      extendBarHackRowContentIfNecessary: function(){
+      extendBarHackRowContentIfNecessary: function(delta){
+        if (delta < 0) return; // zero is ok
         var divOut, divIn, currWidth, targetWidth, factor, newHtml, numCharsToAdd, addThisString,
           neededWidth;
-        for(var i=0; i < this.barHackRows.length; i++){        
+        for(var i=0; i < this.barHackRows.length; i++){
           divOut = this.barHackRows[i].theTd.divOut;
           divIn = divOut.divIn;
+          divOut.css('width', divOut.width()+delta); // when delta is zero this this still "locks it down"
           outWidth = divOut.width();
           inWidth = divIn.width();
-          divOut.css('width', outWidth); // "lock it down"
           if ((outWidth-4) > inWidth) { // this will always be true unless we ever lock down the outer width @todo borders hac
             neededWidth = outWidth - inWidth;
             repeatNumTimes = Math.ceil(neededWidth / divIn.repeaterStringWidth);
-            addThisString = new Array(repeatNumTimes + 2).join(divIn.repeaterString);  
+            addThisString = new Array(repeatNumTimes + 2).join(divIn.repeaterString);
             newHtml = divIn.html() + addThisString;
-            puts(i+") to get from "+inWidth+"px to "+outWidth+"px we will need "+neededWidth+
-              "px which we add with "+repeatNumTimes+" repeater strings (\""+ divIn.repeaterString+"\")");
+            /*puts(i+") to get from "+inWidth+"px to "+outWidth+"px we will need "+neededWidth+
+              "px which we add with "+repeatNumTimes+" repeater strings (\""+ divIn.repeaterString+"\")");*/
             divIn.html(newHtml);
           } else {
-            puts(i+") not adding repeater strings.  threshold not reached (in: "+inWidth+"px out: "+outWidth+"px)");
+            //puts(i+") not adding repeater strings.  threshold not reached (in: "+inWidth+"px out: "+outWidth+"px)");
           }
         }
       },
@@ -161,7 +179,6 @@ $.widget("ui.resizable_table", $.extend({}, $.ui.mouse, {
         var delta = newX - this.normalizeWith[0];
         if (Math.abs(delta) >= this.grid[0]){
           var snappedDelta = delta - (delta % this.grid[0]);
-          puts("sd:z "+snappedDelta);
           var parent = this.cdragHandle.parent();
           children = parent.children();
           for(var i = 0; i < children.length-1; i++){
