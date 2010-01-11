@@ -86,7 +86,7 @@
       this._blit(bm);
     },
     extendArc: function(point){
-      //var myPoint, prevLineGlyph, prevPoint, blitMap, newPrevGlyph;
+      var myPoint, prevLineGlyph, prevPoint, blitMap, newPrevGlyph;
       prevPoint = this.points.last();
       myPoint = this._normalize(point);
       if (prevPoint.equals(myPoint)) return;
@@ -96,7 +96,8 @@
       myPoint.vector = new Vegdor(prevPoint, myPoint);
       myPoint.glyph = myPoint.vector.asciiArrowGlyph();
 
-      prevPoint.vector.changePointB(myPoint);
+      //prevPoint.vector.changePointB(myPoint);
+      prevPoint.vector.changePoints(prevPoint, myPoint);
       newPrevGlyph = prevPoint.vector.asciiLineGlyph();
 
       if (prevPoint.glyph != newPrevGlyph) {
@@ -238,6 +239,10 @@
     },
     changePointB: function(point){
       this.pointB = point;
+      this.clearCache();
+    },
+    changePoints: function(pointA, pointB){
+      this.point = pointA; this.pointB = pointB;
       this.clearCache();
     },
     clearCache: function(){

@@ -1,11 +1,11 @@
 jQuery(function(){
 
-  var gridw = Math.ceil($('#width-registration').width()/21)
-  var gridh = Math.ceil($('#width-registration').height()/2)
-  $("#square").resizable_table({ grid: [gridw, gridh] });  /* must come before draggable.  why? */
-  $("#square").draggable({ grid: [gridw,gridh], containment: 'parent'});
-  //$("#resizable").resizable( );
-  $('#default-canvas').arrows({grid: [gridw,gridh]});
+  var gridw = Math.ceil($('#width-registration-1').width()/21);
+  var gridh = Math.ceil($('#width-registration-1').height()/2);
+  $("#square-1").resizable_table({ grid: [gridw, gridh] });  /* must come before draggable.  why? */
+  $("#square-1").draggable({ grid: [gridw,gridh], containment: 'parent'});
+  //$("#resizable-1").resizable( );
+  $('#canvas-1').arrows({grid: [gridw,gridh]});
 
 
 });

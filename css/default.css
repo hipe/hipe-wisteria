@@ -1,22 +1,43 @@
+/* we don't know if we need absolute positioning to normalize mouse clicks */
+#__absolute__tablet-wrapper-1{
+  position: absolute;
+  border: 1px solid red;
+  left: 10px;
+  top: 200px;
+}
+#relative-tablet-wrapper-1{
+  border: 1px solid orange;
+  position: relative;
+  float: left;
+}
+#width-registration-1{
+  top: 400px;
+}
+#square-1{
+  left: 0px;
+  top: 100px;
+}
+
 div.clear{
   clear:both;
 }
 .terminal{
-  background-color: black;
-  color: white;
   white-space: normal;
   font-family: "Andale Mono", monospace;
   font-size: 1.0em;
 }
-#relative-canvas-wrapper-1{
-  position: relative;
-  float: left;
-}
-.background-canvas{
-  position: relative;
+.canvas-overlay{
+  position: absolute;
   top: 0;
   left: 0;
+  z-index: 3;
+  border: 1px solid pink;
+}
+.the-backmost-background{
+  background-color: #282828;
   z-index: 1;
+  width: 1000px;
+  height: 600px;
 }
 .default-table{
  border-collapse: collapse;
@@ -26,30 +47,11 @@ div.clear{
 }
 .default-table td div.out{overflow:hidden; border: 1px solid orange;}
 .default-table td div.in{border: 1px solid red; float: left;}
-#grid{
-  top: 600px;
-}
-#width-registration{
-  top: 400px;
-}
-#square{
-  left: 0px;
-  top: 100px;
-}
 .square{
   background-color: green;
   color: #000;
-  z-index: 3;
+  z-index: 4;
   position: absolute;
-}
-#relative-canvas-wrapper-1{
-  border: 1px solid green;
-}
-/* we don't no if we need absolute positioning to normalize mouse clicks */
-#__absolute__canvas-wrapper-1{
-  position: absolute;
-  left: 10px;
-  top: 200px;
 }
 .edrag{cursor: e-resize;  }
 /*.sedrag{cursor: se-resize;}
@@ -58,9 +60,6 @@ div.clear{
 .wdrag{ cursor: w-resize; }*/
 .cdrag{ cursor: col-resize;}
 
-
-#resizable { width: 150px; height: 150px; padding: 0.5em; }
-#resizable h3 { text-align: center; margin: 0; }
 
 /************* arc stuff ************/
 
@@ -74,3 +73,7 @@ div.clear{
   font-family: "Andale Mono", monospace;
   font-size: 1.0em;
 }
+
+
+#resizable-1 { width: 150px; height: 150px; padding: 0.5em; }
+#resizable-1 h3 { text-align: center; margin: 0; }
