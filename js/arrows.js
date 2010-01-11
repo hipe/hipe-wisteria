@@ -86,11 +86,11 @@
       this._blit(bm);
     },
     extendArc: function(point){
-      var myPoint, prevLineGlyph, prevPoint, blitMap, newPrevGlyph;
+      //var myPoint, prevLineGlyph, prevPoint, blitMap, newPrevGlyph;
       prevPoint = this.points.last();
       myPoint = this._normalize(point);
       if (prevPoint.equals(myPoint)) return;
-      puts("extending arc to "+myPoint.inspect());
+      //puts("extending arc to "+myPoint.inspect());
 
       blitMap = new BlitMap();
       myPoint.vector = new Vegdor(prevPoint, myPoint);
@@ -98,6 +98,10 @@
 
       //prevPoint.vector.changePointB(myPoint);
       prevPoint.vector.changePoints(prevPoint, myPoint);
+      if (prevPoint.vector.cardinalIsSecondary()){
+        prevPoint.vector.collapse();
+      }
+
       newPrevGlyph = prevPoint.vector.asciiLineGlyph();
 
       if (prevPoint.glyph != newPrevGlyph) {
@@ -161,15 +165,16 @@
     }
   };
 
-  var STILL      = 'STILL';
-  var NORTH      = 'NORTH';
-  var EAST       = 'EAST';
-  var SOUTH      = 'SOUTH';
-  var WEST       = 'WEST';
+  var STILL      = 'STILL'     ;
+  var NORTH      = 'NORTH'     ;
+  var EAST       = 'EAST'      ;
+  var SOUTH      = 'SOUTH'     ;
+  var WEST       = 'WEST'      ;
   var NORTH_EAST = 'NORTH_EAST';
   var SOUTH_EAST = 'SOUTH_EAST';
   var SOUTH_WEST = 'SOUTH_WEST';
   var NORTH_WEST = 'NORTH_WEST';
+
 
   /** @constructor */
   var Vegdor = function(pointA, pointB){
@@ -193,13 +198,13 @@
     asciiArrowGlyphs: {
       STILL     : '*',
       NORTH     : '^',
-      EAST      : '>',
+      EAST      : '&gt;',
       SOUTH     : 'v',
-      WEST      : '<',
+      WEST      : '&lt;',
       NORTH_EAST: '7',
-      SOUTH_EAST: '>',
+      SOUTH_EAST: '&gt;',
       SOUTH_WEST: 'L',
-      NORTH_WEST: '<'
+      NORTH_WEST: '&lt;'
     },
     slope: function(){
       if (!this._slope){
@@ -213,6 +218,12 @@
           Math.sqrt( Math.pow(this.pointB[0] - this.pointA[0], 2) + Math.pow(this.pointB[1] - this.pointA[1], 2));
       }
       return this._magnitude;
+    },
+    cardinalIsPrimary: function(){
+      return ! this.cardinalIsSecondary() && 'STILL' !== this.cardinal();
+    },
+    cardinalIsSecondary:function(){
+      return -1 != this.cardinal().indexOf('_'); // the most glorious hack ever
     },
     cardinal: function(){
       var absSlope = Math.abs(this.slope());
@@ -249,6 +260,11 @@
       this._cardinal = null;
       this._magnitude = null;
       this._slope = null;
+    },
+    collapse: function(){
+      this.pointA = [0,0];
+      this.pointB = [0,0];
+      this.clearCache();
     }
   };
 
