@@ -14,9 +14,8 @@
 
   var xy = function(x,y){ return '['+x+']['+y+']'; };
 
-  // @todo necessary?
   var parsePx = function(str){
-    var capture = /^(\d+(?:\.\d+)?)px$/.exec(str);
+    var capture = /^-?(\d+(?:\.\d+)?)px$/.exec(str);
     return parseFloat(capture);
   };
 
@@ -45,6 +44,41 @@
   ResizableTable.re = /\b([wce]drag)\b/;
   ResizableTable.validCelNodeNames = ['TH','TD'];
   ResizableTable.prototype = {
+    top :    function(){return parsePx(this.table.css('top'));},
+    right :  function(){return this.left() + this.width();},
+    bottom : function(){return this.top() + this.height();},
+    left :   function(){return parsePx(this.table.css('left'));},
+    width:   function(){return this.table.width();},
+    height:  function(){return this.table.height();},
+    setRight: function(x){
+      var delta = x - this.normalizeWith[0];
+      if (Math.abs(delta) >= this.grid[0]){
+        var snappedDelta = delta - (delta % this.grid[0]);
+        this.normalizeWith[0] += snappedDelta;
+        var newWidth = this.width() + snappedDelta;
+        if (!this.setWidth(newWidth)) return false;
+      }
+      return true;
+    },
+    setLeft: function(x){
+      var delta = x - this.normalizeWith[0];
+      if (Math.abs(delta) >= this.grid[0]){
+        var leftPx = this.left();
+        if (isNaN(leftPx)) {
+          return this.error('Can\'t setLeft() when table\'s css \'left\' property is set to "'+this.table.css('left')+'"');
+        }
+        var snappedDelta = delta - (delta % this.grid[0]);
+        this.normalizeWith[0] += snappedDelta;
+        var newLeft = leftPx + snappedDelta;
+        this.table.css('left',newLeft);
+        if (newLeft != parsePx(this.table.css('left'))){
+          return this.error("problem moving left? current new left is "+parsePx(this.table.css('left'))+" and should be "+newLeft);
+        }
+        var newWidth = this.width() + (snappedDelta * -1.0);
+        if (!this.setWidth(newWidth)) return false;
+      }
+      return true;
+    },
     setGrid: function(grid){
       if (grid[0] > 0 && grid[1] > 0){
         this.grid = grid;
@@ -120,7 +154,7 @@
             var currWidth = divIn.css('width');
             divIn.css('width', currWidth); // need to lock it? @todo
             if (colsMeta) {
-              columnMeta.isFixedWidth = cel.hasClass('cb'); // @todo unhack
+              columnMeta.isFixedWidth = cel.hasClass('fixed-width');
               colsMeta[x] = columnMeta;
               if (!columnMeta.isFixedWidth) this.indexesOfResizableColumns.push(x);
             }
@@ -209,25 +243,6 @@
       }
       this.normalizeWith[0] += snappedDelta;
       return true;
-    },
-    top :    function(){return parsePx(this.table.css('top'));},
-    right :  function(){return this.left() + this.width();},
-    bottom : function(){return this.top() + this.height();},
-    left :   function(){return parsePx(this.table.css('left'));},
-    width:   function(){return this.table.width();},
-    height:  function(){return this.table.height();},
-    setRight: function(x){
-      var delta = x - this.normalizeWith[0];
-      if (Math.abs(delta) >= this.grid[0]){
-        var snappedDelta = delta - (delta % this.grid[0]);
-        this.normalizeWith[0] += snappedDelta;
-        var newWidth = this.width() + snappedDelta;
-        if (!this.setWidth(newWidth)) return false;
-      }
-      return true;
-    },
-    setLeft: function(x){
-
     },
     setBottom: function(y){
 
