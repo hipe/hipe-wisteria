@@ -106,6 +106,8 @@
         if (tr.hasClass('decorative-separator')) {
           separatorTrs.push(tr);
           if (this.separatorRowMatchesBarHackPattern(tr)) barHackRows.push(tr);
+        } else if (tr.hasClass('ignore-resizing')) {
+          // rien
         } else {
           if (! (semanticTr = this.semantifyRow(tr,i))) return false;
           dataTrs.push(semanticTr);
