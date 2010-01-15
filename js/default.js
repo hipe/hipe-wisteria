@@ -6,6 +6,7 @@ jQuery(function(){
   $("#square-1").draggable({ grid: [gridw,gridh], containment: 'parent'});
   //$("#resizable-1").resizable( );
   $('#canvas-1').arrows({grid: [gridw,gridh]});
+  $('#canvas-1').canvas({grid: [gridw,gridh]});
 
 
 });
