@@ -71,8 +71,10 @@
         this.normalizeWith[0] += snappedDelta;
         var newLeft = leftPx + snappedDelta;
         this.table.css('left',newLeft);
-        if (newLeft != parsePx(this.table.css('left'))){
-          return this.error("problem moving left? current new left is "+parsePx(this.table.css('left'))+" and should be "+newLeft);
+        var newLeftAfterSetting = parsePx(this.table.css('left'));
+        if (Math.abs(newLeft - newLeftAfterSetting) > 0.001 ){
+          // @todo maybe get rid of this?
+          return this.error("problem moving left? current new left is "+newLeftAfterSetting+" and should be "+newLeft);
         }
         var newWidth = this.width() + (snappedDelta * -1.0);
         if (!this.setWidth(newWidth)) return false;
@@ -249,13 +251,13 @@
     setBottom: function(y){
 
     },
-    setTop: function(y){
-
-    },
     // distribute the new width evenly across resizable cels
     setWidth: function(newWidth){
-      var x, idxs = this.indexesOfResizableColumns;
-      if (!this.calculateScaleHorizontal(newWidth)) return false;
+      var x, idxs = this.indexesOfResizableColumns, subResult;
+      if (!(subResult = this.calculateScaleHorizontal(newWidth))){
+        if (subResult===null) return true; // table is at minimum width
+        return subResult;  // (false) some failure, _lastErrorMessage should be set
+      }
       for(var i = 0; i < this.horizontalScaleMatrix.length; i++){
         for(var j=0; j<idxs.length; j++){
           x = idxs[j];
@@ -271,7 +273,9 @@
       }
       return (! this._lastErrorMessage);
     },
-
+    /**
+    * @return true on success, null if we are already at minimum width, false on failure
+    */
     calculateScaleHorizontal: function(newWidth){
       var matrix, x,y,i,j, colMeta;
       matrix = this.horizontalScaleMatrix;
@@ -292,9 +296,10 @@
       }
       if (totalRequestedDelta == 0) return true;
       if (totalRequestedDelta < 0 && (-1 * totalRequestedDelta) > totalWidthOfDataCels){
-        //The client shouldn't know about or care about total width of our data cels
+        //The client shouldn't know about or care about total width of our data cels.
+        // We do, however.  If we are already at minimum width, tell the caller by returning null
         //return this.error("can't shrink table smaller than zero width");
-        return true;
+        return null;
       }
       var totalDeltaAfterDivision = 0.0, celDelta;
       var last = idxs.length - 1;

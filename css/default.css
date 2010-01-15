@@ -54,12 +54,15 @@ div.clear{
   z-index: 4;
   position: absolute;
 }
+
+.cdrag{ cursor: col-resize;}
 .edrag{cursor: e-resize;  }
+.wdrag{ cursor: w-resize; }
 /*.sedrag{cursor: se-resize;}
 .sdrag{ cursor: s-resize; }
 .swdrag{cursor: sw-resize;}
 .wdrag{ cursor: w-resize; }*/
-.cdrag{ cursor: col-resize;}
+
 
 
 /************* arc stuff ************/
