@@ -1,0 +1,24 @@
+[
+  "description:",
+  "one day we might etc.",
+  "list:",[
+    ["directory:",
+      {
+       "source":"./js/nogit/ui-svn-checkout/ui/",
+       "target":"./js/jquery/latest/ui/"
+      },
+      "files:",[
+        "jquery.ui.core.js",
+        "jquery.ui.draggable.js",
+        "jquery.ui.resizable.js"
+      ],
+      "rename:",{"search":"^jquery\\.(.+)$","replace":"\\1"}
+    ],
+    ["file:",
+      {
+       "source":"./js/nogit/jquery-git-checkout/dist/jquery.js",
+       "target":"./js/jquery/latest.js"
+      }
+    ]
+  ]
+]

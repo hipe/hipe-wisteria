@@ -1,0 +1,161 @@
+#!/usr/bin/env ruby
+# -*- mode: ruby -*-
+require 'json'
+require 'open3'
+require 'ruby-debug'
+require 'hipe-core/interfacey'
+require 'hipe-core/struct/table'
+
+module Hipe
+  class Visiting
+    include Interfacey::Service
+    interface.might do
+      speaks :cli
+      responds_to "help", "page << self", :aliases=>['-h','--help','-h']
+      default_request "help"
+      responds_to "list", "show list of visiting files"
+      responds_to "diff", "show a diff from target to source of all files"
+      responds_to("copy", "copy files over -- no undo!") do
+        opts.on('-d','--dry', 'as dry run')
+      end
+      responds_to("pull", "coming one day..")
+    end
+
+    def initialize
+      @path = "./visiting.json"
+    end
+
+    module HashViolence
+      def self.[] hash
+        meta = class << hash; self; end
+        hash.keys.each do |key|
+          meta.send(:define_method, key) { hash[key] }
+        end
+        hash
+      end
+    end
+
+    Gash = Interfacey::AssociativeArray
+
+    unless Gash.instance_methods(false).include?('inspect')
+      Gash.send(:define_method,'inspect') do
+        '{' + keys.map{|k| "#{k.inspect} => #{self[k].inspect}"} * ', ' + '}'
+      end
+    end
+
+    module Json
+      KeyLike = /^([-a-z0-9_ ]+):$/
+      module Unmarshal
+        def self.hash json
+          result = {}
+          json.each{ |k,v| result[k] = unmarshal v }
+          HashViolence[result]
+        end
+        def self.array(json)
+          ok = false
+          len = json.length
+          if (len % 2 == 0)
+            ok = 0 == (0..len-2).step(2).map{|i| json[i]}.reject do |s|
+              String === s && KeyLike =~ s
+            end.length
+          end
+          if ok
+            result = Gash.new.no_clobber.require_key
+            (0..len-2).step(2) do |i|
+              key = KeyLike.match(json[i]).captures[0]
+              result[key] = unmarshal(json[i+1])
+            end
+            result.attr_accessors(*result.keys)
+          else
+            result = (0..len-1).map{|i| unmarshal json[i] }
+          end
+          result
+        end
+        def self.unmarshal json
+          meth = json.class.to_s.downcase
+          respond_to?(meth) ? send(meth, json) : json
+        end
+      end
+      def self.unmarshal json
+        Unmarshal.unmarshal json
+      end
+    end
+
+    def struct
+      @struct ||= begin
+        pre_struct = JSON.parse(File.read(@path))
+        Json.unmarshal pre_struct
+      end
+    end
+
+    def file_pairs
+      file_pairs = []
+      struct.list.each do |entry|
+        if entry["directory"]
+          dir = entry.directory
+          re = nil
+          replace = nil
+          if entry["rename"]
+            re = Regexp.new(entry.rename.search)
+            replace = entry.rename.replace
+          end
+          entry.files.each do |file|
+            source = dir.source+file
+            if re
+              file_pairs << [source, dir.target+file.sub(re,replace)]
+            else
+              file_pairs << [source, dir.target+file]
+            end
+          end
+        else
+          file_pairs << [entry.file.source, entry.file.target]
+        end
+      end
+      file_pairs
+    end
+
+    def each_file_pair
+      file_pairs.each do |pair|
+        yield pair[0], pair[1]
+      end
+    end
+
+    def list
+      file_pairs = self.file_pairs
+      table = Hipe::Table.make do
+        self.name = 'visiting files'
+        field(:source){|x| x[0]}
+        field(:target){|x| x[1]}
+        self.list = file_pairs
+      end
+      table.render(:ascii)
+    end
+    def sync opts
+    end
+
+    def diff
+      missing = []
+      each_file_pair do |src, tgt|
+        missing << src unless File.exist?(src)
+        missing << tgt unless File.exist?(tgt)
+      end
+      return error("missing files:\n" + missing * "\n") if missing.size > 0
+      each_file_pair do |src, tgt|
+        Open3.popen3('diff', tgt, src) do |sin, sout, serr|
+          $stdout.puts "this is the diff between #{tgt} and #{src}"
+          out = sout.read.strip
+          err = serr.read.strip
+          return error(err) unless ""==err
+          $stdout.puts out
+        end
+      end
+      ''
+    end
+
+    def error(msg)
+      return Interfacey::ResponseLite.new(:error => msg)
+    end
+  end
+end
+
+puts Hipe::Visiting.new.cli_run(ARGV) if $PROGRAM_NAME == __FILE__
