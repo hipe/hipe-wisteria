@@ -2,7 +2,8 @@
   "description:",
   "one day we might etc.",
   "list:",[
-    ["directory:",
+    ["skip:", true,
+     "directory:",
       {
        "source":"./js/nogit/ui-svn-checkout/ui/",
        "target":"./js/jquery/latest/ui/"
@@ -14,7 +15,8 @@
       ],
       "rename:",{"search":"^jquery\\.(.+)$","replace":"\\1"}
     ],
-    ["file:",
+    ["skip:", false,
+     "file:",
       {
        "source":"./js/nogit/jquery-git-checkout/dist/jquery.js",
        "target":"./js/jquery/latest.js"

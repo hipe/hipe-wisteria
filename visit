@@ -89,29 +89,33 @@ module Hipe
     end
 
     def file_pairs
-      file_pairs = []
-      struct.list.each do |entry|
-        if entry["directory"]
-          dir = entry.directory
-          re = nil
-          replace = nil
-          if entry["rename"]
-            re = Regexp.new(entry.rename.search)
-            replace = entry.rename.replace
-          end
-          entry.files.each do |file|
-            source = dir.source+file
-            if re
-              file_pairs << [source, dir.target+file.sub(re,replace)]
-            else
-              file_pairs << [source, dir.target+file]
+      @file_pairs ||= begin
+        file_pairs = []
+        struct.list.each do |entry|
+          next if entry["skip"]
+          if entry["directory"]
+            dir = entry.directory
+            re = nil
+            replace = nil
+            if entry["rename"]
+              re = Regexp.new(entry.rename.search)
+              replace = entry.rename.replace
             end
+            entry.files.each do |file|
+              source = dir.source+file
+              if re
+                file_pairs << [source, dir.target+file.sub(re,replace)]
+              else
+                file_pairs << [source, dir.target+file]
+              end
+            end
+          else
+            file_pairs << [entry.file.source, entry.file.target]
           end
-        else
-          file_pairs << [entry.file.source, entry.file.target]
         end
+        file_pairs
       end
-      file_pairs
+      @file_pairs
     end
 
     def each_file_pair
@@ -150,6 +154,23 @@ module Hipe
         end
       end
       ''
+    end
+
+    def copy opts
+      puts "copying "+file_pairs.size.to_s+" files over"
+      each_file_pair do |src, tgt|
+        fake_command = "copy #{src} #{tgt}"
+        if File.exist?(tgt) && File.read(tgt)==File.read(src)
+          puts "no difference: #{src} #{tgt}"
+        elsif opts.dry
+          puts fake_command
+        else
+          puts fake_command
+          FileUtils.copy(src, tgt)
+        end
+        sleep(1.0) # give user a chance to cancel
+      end
+      'done.'
     end
 
     def error(msg)
