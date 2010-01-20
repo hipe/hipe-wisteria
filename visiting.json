@@ -1,26 +1,63 @@
-[
-  "description:",
-  "one day we might etc.",
-  "list:",[
-    ["skip:", true,
-     "directory:",
-      {
-       "source":"./js/nogit/ui-svn-checkout/ui/",
-       "target":"./js/jquery/latest/ui/"
-      },
+[ "description:","one day we might etc.",
+  "comments:",[
+    "this is a data file for the experimental 'visit' utility",
+    "note that directories in this file must have trailing slashes."],
+  "list:",[[
+
+
+      "name:","latest jquery",
+      "file:",{
+         "source":"./nogit/jquery-git-checkout/dist/jquery.js",
+         "target":"./js/jquery/latest.js"}],[
+
+
+      "name:","things to run ui-style tests",
+      "directory:",{
+        "source" : "./nogit/ui-svn-checkout/",
+        "target" : "./js/"},
+      "files:", [{
+         "source" : "tests/unit/testsuite.css",
+          "target" :  "test/unit/testsuite.css"},{
+          "source" : "tests/unit/testsuite.js",
+          "target" :  "test/unit/testsuite.js"},{
+          "source" : "external/testrunner-r6588.js",
+          "target" :  "test/unit/testrunner-r6588.js"},{
+          "source" : "tests/jquery.simulate.js",
+          "target" :  "test/unit/jquery.simulate.js"}]],[
+
+
+      "name:","things to run tests from jquery",
+      "files:",[{
+          "source" : "./nogit/jquery-git-checkout/test/qunit/qunit/qunit.js",
+          "target" : "./js/test/unit/qunit.js"},{
+          "source" : "./nogit/jquery-git-checkout/test/qunit/qunit/qunit.css",
+          "target" : "./js/test/unit/qunit.css"}]],[
+
+
+      "name:","the files we are using, the dev bundle subset",
+      "comment:","this should be mutually exclusive with the next entry",
+      "directory:",{
+        "source":"./nogit/jquery-dev-bundle/development-bundle/ui/",
+        "target":"./js/jquery/latest/ui/"},
+      "rename:",{"search":"(^)(.+)$","replace":"jquery.\\2"},
+      "files:",[
+        "ui.core.js",
+        "ui.draggable.js",
+        "ui.resizable.js"]],[
+
+     "name:","latest jquery UI stuff",
+     "comments:",[
+       "this should be mutually exclusive with the previous entry",
+       "this is breaking stuff. skip for now"],
+     "skip:", true,
+     "directory:",{
+       "source":"./nogit/ui-svn-checkout/ui/",
+       "target":"./js/jquery/latest/ui/"},
       "files:",[
         "jquery.ui.core.js",
         "jquery.ui.draggable.js",
-        "jquery.ui.resizable.js"
-      ],
-      "rename:",{"search":"^jquery\\.(.+)$","replace":"\\1"}
-    ],
-    ["skip:", false,
-     "file:",
-      {
-       "source":"./js/nogit/jquery-git-checkout/dist/jquery.js",
-       "target":"./js/jquery/latest.js"
-      }
+        "jquery.ui.resizable.js"],
+      "_rename:",{"search":"^jquery\\.(.+)$","replace":"\\1"}
     ]
   ]
 ]

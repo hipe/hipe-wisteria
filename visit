@@ -11,28 +11,23 @@ module Hipe
     include Interfacey::Service
     interface.might do
       speaks :cli
+      describe <<-desc
+        This this is an experimental hack to achieve something like
+        svn:externals but only for a subset of files
+      desc
       responds_to "help", "page << self", :aliases=>['-h','--help','-h']
       default_request "help"
       responds_to "list", "show list of visiting files"
       responds_to "diff", "show a diff from target to source of all files"
       responds_to("copy", "copy files over -- no undo!") do
         opts.on('-d','--dry', 'as dry run')
+        opts.on('-f','--fast','no safey-catch sleeping thing')
       end
       responds_to("pull", "coming one day..")
     end
 
     def initialize
       @path = "./visiting.json"
-    end
-
-    module HashViolence
-      def self.[] hash
-        meta = class << hash; self; end
-        hash.keys.each do |key|
-          meta.send(:define_method, key) { hash[key] }
-        end
-        hash
-      end
     end
 
     Gash = Interfacey::AssociativeArray
@@ -44,14 +39,39 @@ module Hipe
     end
 
     module Json
+      class HashViolence < Hash
+        class Fail < RuntimeError; end
+        attr_accessor :path
+        def initialize(hash,path)
+          self.path = path
+          meta = class << self; self; end
+          hash.each do |k,v|
+            self[k] = v
+            meta.send(:define_method, k){self[k]}
+          end
+        end
+        def method_missing name, *args
+          msg = %|There is no "#{name}" attribute at "#{path}".|
+          if keys.size == 0
+            msg << %|  This node has no children!|
+          elsif keys.size < 8
+            msg << %|  Available: #{keys.map{|x| x.inspect}*', '}?|
+          end
+          raise Fail.new(msg)
+        end
+      end
+
       KeyLike = /^([-a-z0-9_ ]+):$/
       module Unmarshal
-        def self.hash json
+        def self.hash json, path
           result = {}
-          json.each{ |k,v| result[k] = unmarshal v }
-          HashViolence[result]
+          json.each do |k,v|
+            child_path = %|#{path}/#{k}|
+            result[k] = unmarshal v, child_path
+          end
+          HashViolence.new(result, path)
         end
-        def self.array(json)
+        def self.array json, path
           ok = false
           len = json.length
           if (len % 2 == 0)
@@ -63,28 +83,32 @@ module Hipe
             result = Gash.new.no_clobber.require_key
             (0..len-2).step(2) do |i|
               key = KeyLike.match(json[i]).captures[0]
-              result[key] = unmarshal(json[i+1])
+              child_path = %|#{path}/#{key}|
+              result[key] = unmarshal(json[i+1],child_path)
             end
             result.attr_accessors(*result.keys)
           else
-            result = (0..len-1).map{|i| unmarshal json[i] }
+            result = (0..len-1).map do |i|
+              child_path = %|#{path}/[#{i}]|
+              unmarshal json[i], child_path
+            end
           end
           result
         end
-        def self.unmarshal json
+        def self.unmarshal json, path
           meth = json.class.to_s.downcase
-          respond_to?(meth) ? send(meth, json) : json
+          respond_to?(meth) ? send(meth, json, path) : json
         end
       end
-      def self.unmarshal json
-        Unmarshal.unmarshal json
+      def self.unmarshal json, path
+        Unmarshal.unmarshal json, path
       end
     end
 
     def struct
       @struct ||= begin
         pre_struct = JSON.parse(File.read(@path))
-        Json.unmarshal pre_struct
+        Json.unmarshal pre_struct, @path
       end
     end
 
@@ -94,21 +118,9 @@ module Hipe
         struct.list.each do |entry|
           next if entry["skip"]
           if entry["directory"]
-            dir = entry.directory
-            re = nil
-            replace = nil
-            if entry["rename"]
-              re = Regexp.new(entry.rename.search)
-              replace = entry.rename.replace
-            end
-            entry.files.each do |file|
-              source = dir.source+file
-              if re
-                file_pairs << [source, dir.target+file.sub(re,replace)]
-              else
-                file_pairs << [source, dir.target+file]
-              end
-            end
+            file_pairs_from_directory file_pairs, entry
+          elsif entry["files"]
+            file_pairs_from_files file_pairs, entry
           else
             file_pairs << [entry.file.source, entry.file.target]
           end
@@ -117,6 +129,37 @@ module Hipe
       end
       @file_pairs
     end
+
+    def file_pairs_from_files file_pairs, entry
+      entry.files.each do |file_node|
+        file_pairs << [file_node.source, file_node.target]
+      end
+    end
+
+    def file_pairs_from_directory file_pairs, entry
+      dir = entry.directory
+      re = nil
+      replace = nil
+      if entry["rename"]
+        re = Regexp.new(entry.rename.search)
+        replace = entry.rename.replace
+      end
+      entry.files.each do |file|
+        if file.kind_of? String
+          source = dir.source+file
+          if re
+            file_pairs << [source, dir.target+file.sub(re,replace)]
+          else
+            file_pairs << [source, dir.target+file]
+          end
+        elsif file.kind_of? Hash
+          src_file  = dir.source + file.source
+          dest_file = dir.target + file.target
+          file_pairs << [src_file, dest_file]
+        end
+      end
+    end
+
 
     def each_file_pair
       file_pairs.each do |pair|
@@ -159,6 +202,8 @@ module Hipe
     def copy opts
       puts "copying "+file_pairs.size.to_s+" files over"
       each_file_pair do |src, tgt|
+        file_exists(src) or return error
+        file_exists(File.dirname(tgt)+'/') or return error
         fake_command = "copy #{src} #{tgt}"
         if File.exist?(tgt) && File.read(tgt)==File.read(src)
           puts "no difference: #{src} #{tgt}"
@@ -168,13 +213,29 @@ module Hipe
           puts fake_command
           FileUtils.copy(src, tgt)
         end
-        sleep(1.0) # give user a chance to cancel
+        sleep(0.67) unless opts.fast
       end
       'done.'
     end
 
-    def error(msg)
-      return Interfacey::ResponseLite.new(:error => msg)
+    def file_exists path
+      if ! File.exist? path
+        error("File does not exist: #{path}")
+        false
+      else
+        true
+      end
+    end
+
+    def error(msg=nil)
+      if (msg)
+        @last_err_msg = msg
+        return Interfacey::ResponseLite.new(:error => msg)
+      else
+        return Interfacey::ResponseLite.new(:error=>
+          %|error: "#{@last_err_msg}"|
+        )
+      end
     end
   end
 end
