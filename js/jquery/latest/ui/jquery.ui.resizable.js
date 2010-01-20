@@ -202,7 +202,6 @@ $.widget("ui.resizable", $.extend({}, $.ui.mouse, {
 	},
 
 	_mouseCapture: function(event) {
-	  console.log("mousecapture--");
 
 		var handle = false;
 		for(var i in this.handles) {
@@ -214,7 +213,6 @@ $.widget("ui.resizable", $.extend({}, $.ui.mouse, {
 	},
 
 	_mouseStart: function(event) {
-	  console.log("mstart--");
 
 		var o = this.options, iniPos = this.element.position(), el = this.element;
 
@@ -260,7 +258,6 @@ $.widget("ui.resizable", $.extend({}, $.ui.mouse, {
 	},
 
 	_mouseDrag: function(event) {
-	  console.log("mdrag--");
 
 		//Increase performance, avoid regex
 		var el = this.helper, o = this.options, props = {},
@@ -298,7 +295,6 @@ $.widget("ui.resizable", $.extend({}, $.ui.mouse, {
 	},
 
 	_mouseStop: function(event) {
-	  console.log("mstop--");
 
 		this.resizing = false;
 		var o = this.options, self = this;
