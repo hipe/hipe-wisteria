@@ -1,4 +1,4 @@
-.hipe-resizable .handle{
+.hipe-resizable-default-theme .handle{
  -moz-user-select: none;
   /*border: 1px solid #ce4dd6;*/
   display:block;
@@ -6,14 +6,14 @@
   /*font-size:0.1px;*/
   z-index:10;
 }
-.hipe-resizable .ndrag{
+.hipe-resizable-default-theme .ndrag{
   cursor:n-resize;
   height:7px;
   top: -4px;
   left:0;
   width:100%;
 }
-.hipe-resizable .nedrag{
+.hipe-resizable-default-theme .nedrag{
   cursor: ne-resize;
   height: 16px;
   right: 1px;
@@ -21,14 +21,14 @@
   width: 16px;
   z-index: 11;
 }
-.hipe-resizable .edrag{
+.hipe-resizable-default-theme .edrag{
   cursor:e-resize;
   height:100%;
   right:-5px;
   top:0;
   width:7px;
 }
-.hipe-resizable .sedrag{
+.hipe-resizable-default-theme .sedrag{
   bottom: 1px;
   cursor: se-resize;
   height: 16px;
@@ -36,14 +36,14 @@
   width: 16px;
   z-index: 11;
 }
-.hipe-resizable .sdrag{
+.hipe-resizable-default-theme .sdrag{
   bottom:-5px;
   cursor:s-resize;
   height:7px;
   left:0;
   width:100%;
 }
-.hipe-resizable .swdrag{
+.hipe-resizable-default-theme .swdrag{
   bottom: 1px;
   cursor: sw-resize;
   height: 16px;
@@ -51,14 +51,14 @@
   width: 16px;
   z-index: 11;
 }
-.hipe-resizable .wdrag{
+.hipe-resizable-default-theme .wdrag{
   cursor:w-resize;
   height:100%;
   left:-5px;
   top:0;
   width:7px;
 }
-.hipe-resizable .nwdrag{
+.hipe-resizable-default-theme .nwdrag{
   cursor: nw-resize;
   height: 16px;
   left: 1px;

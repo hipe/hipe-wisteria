@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <title>hipe resizable visual test</title>
+  <link rel="stylesheet" href="css.css" type="text/css" />
+  <link rel="stylesheet" href="../../../../css/hipe-ui-default-themes.css" type="text/css" />
+  <script type="text/javascript" src="../../../jquery/latest.js"></script>
+  <script type="text/javascript" src="../../../jquery/latest/ui/jquery.ui.core.js"></script>
+  <script type="text/javascript" src="../../../hipe-resizable.js"></script>
+  <script type="text/javascript">
+    $(function() {
+      $(".a-hipe-re-sizable-example").hipe_resizable();
+    });
+  </script>
+</head>
+<body>
+  <div id='page'>
+    <div id='main'>
+      <div class='feature' id='beauty'>
+        <h2>Beauty</h2>
+        <p>
+          Sass does away with the unnecessary brackets and semicolons of CSS.
+          Properties are nested beneath selectors,
+          and each property gets its own line.
+        </p>
+        <pre class='sass a-hipe-re-sizable-example hipe-resizable-default-theme' id='aaa'>// Sass&#x000A;&#x000A;h1&#x000A;  height: 118px&#x000A;  margin-top: 1em&#x000A;&#x000A;.tagline&#x000A;  font-size: 26px&#x000A;  text-align: right&#x000A;</pre>
+
+        <pre class='css a-hipe-re-sizable-example hipe-resizable-default-theme' id='bbb'>/* CSS */&#x000A;&#x000A;h1 {&#x000A;  height: 118px;&#x000A;  margin-top: 1em;&#x000A;}&#x000A;&#x000A;.tagline {&#x000A;  font-size: 26px;&#x000A;  text-align: right;&#x000A;}&#x000A;</pre>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

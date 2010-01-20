@@ -1,14 +1,18 @@
 /*
- * hipe resizable 0.0.0
+ * hipe resizable 0.0.0pre
+ *
+ * experimental!
+ *
+ * rewrite a shorter simpler version of jquery resizable b/c at first
+ * we thought we couldn't specify individual axis.
+ *
+ * this allows you to set a subset of the 8 available handles in your css class name,
+ * for e.g. "<div class='hipe-resizable hipe-resizable-n-ne-e-s-se'>..</div>"
+ * sometimes code smell smells like flowers
  *
  * copyright (c) 2009 mark meves
  * dual licensed under the MIT (MIT-LICENSE.txt)
  * and GPL (GPL-LICENSE.txt) licenses.
- *
- * rewrite a shorter simpler version of jquery resizable b/c we thought we couldn't
- * specify individual axis.
- * this allows you to set a subset of the 8 available handles in your css class name,
- * for e.g. "<div class='hipe-resizable hipe-resizable-n-ne-e-s-se'>..</div>"
  */
 
 (function($) {
@@ -32,6 +36,8 @@
     if (!this.setGrid(options.grid || [5,5])) return this;
     if (!element) return this.error("where is element?");
     this.element = $(element);
+    if (this.element.css('position') != 'relative')
+      return this.error("for now, please set position:relative yourself on resizables"); //@todo
     if (!this.addHandles()) return this;
     return this;
   };
@@ -42,7 +48,6 @@
   var SelectorReNonGlobal = new RegExp('\\bhipe-resizable(?:-(\\w+(?:-\\w+)*))?\\b');
   var CardinalRe          = new RegExp('^'+cardinals+'$');
   var XdragRe             = new RegExp('\\b[a-z]+drag\\b');
-
   var AllCardinals = ['n','ne','e','se','s','sw','w','nw'];
   HipeResizable.prototype = {
     setNormalizingPoint: function(point){ this.normalizeWith = point; },
@@ -72,7 +77,9 @@
           if (matches[1]){
             var subSpecificHandles = matches[1].split('-');
             for (var j=0; j < subSpecificHandles.length; j++){
-              if (-1 == specificHandles.indexOf(subSpecificHandles[j])) specificHandles.push(subSpecificHandles[j]);
+              var handle = subSpecificHandles[j];
+              if ('default'==handle || 'theme'==handle) continue; // ick
+              if (-1 == specificHandles.indexOf(handle)) specificHandles.push(handle);
             }
           }
         }
@@ -82,13 +89,14 @@
       existing = this.getHashOfExistingHandleTypes();
       for(i=0;i < specificHandles.length; i++){
         var cardinal = specificHandles[i];
-        if (!CardinalRe.exec(cardinal)) return this.error('unrecognized cardinal direction"'+cardinal+
+        if (!CardinalRe.exec(cardinal))
+          return this.error('unrecognized cardinal direction"'+cardinal+
           '". Please choose among '+AllCardinals.join(', '));
         cls = cardinal+'drag';
         if (existing[cls]) continue;
-        var handle = $('<div class="'+cls+' handle"></div>');
+        var handleDiv = $('<div class="'+cls+' handle"></div>');
         // for now we won't store the handles but in the future we might if we have embedded resizables
-        this.element.append(handle);
+        this.element.append(handleDiv);
       }
       return true;
     },
@@ -195,7 +203,7 @@
     },
     _init: function() {
       var self = this;
-      if (( window.R = self.controller = new HipeResizable(self.element, self.options)).isValid()) {
+      if (( window.R = self.controller = new HipeResizable(self.element, self.options)).isValid()) { //@todo
         // ok
       } else {
         return this.error(self.controller.lastErrorMessage());
