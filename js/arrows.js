@@ -37,18 +37,20 @@
     inspect: function(){ return "["+this[0]+"]["+this[1]+"]"; }
   };
 
-  var getNormalizer = function(mouseEvent){
+  var getNormalizingPoint = function(mouseEvent){
     var el = $(mouseEvent.target);
     var offset = [0,0];
     var done = false;
     var nextEl;
     do{
-      done = ((nextEl = el.parent()).length == 0 || (/^__absolute__/).exec(el.attr('id')) );
+      done = ((nextEl = el.parent()).length == 0 ||
+        (/^__absolute__/).exec(el.attr('id')) );
       var topOffset =  -1 * (parse(el.css('top')));
       var leftOffset = -1 * (parse(el.css('left')));
       offset[0] += leftOffset;
       offset[1] += topOffset;
-      // puts("changing normalizer with: ["+leftOffset+']['+topOffset+'] new vector: ['+offset[0]+']['+offset[1]+']');
+      // puts("changing normalizer with: ["+leftOffset+']['+topOffset+']'+
+      //' new vector: ['+offset[0]+']['+offset[1]+']');
       el = nextEl;
     } while (! done);
     if (el.length == 0) return false;
@@ -134,7 +136,8 @@
       this.html(this.linesCache.join("\n"));
     },
     _normalize: function(point){
-      var myPoint = [Math.floor(point[0] / this.snapX), Math.floor(point[1] / this.snapY)];
+      var myPoint = [Math.floor(point[0] / this.snapX),
+                     Math.floor(point[1] / this.snapY)];
       return extend(myPoint,PointLike);
     }
   };
@@ -152,7 +155,8 @@
       var id = this.canvas.parent().attr('id')+'-arc'+(this.arcs.length+1);
       var newCanvas = $('<div></div>').addClass('arc-canvas').attr('id',id);
       this.canvas.parent().append(newCanvas);
-      puts("appended a new ArcCanvas to Canvas"); window.Canvas = this.canvas; window.ArcCanvas = newCanvas;
+      puts("appended a new ArcCanvas to Canvas @todo");
+        window.Canvas = this.canvas; window.ArcCanvas = newCanvas;
       extend(newCanvas, AsciiArcCanvas.prototype);
       newCanvas.initAsciiArcCanvas(this.options);
       return newCanvas;
@@ -208,14 +212,16 @@
     },
     slope: function(){
       if (!this._slope){
-        this._slope = (this.pointB[1] - this.pointA[1]) / (this.pointB[0] - this.pointA[0]);
+        this._slope = (this.pointB[1] - this.pointA[1]) /
+          (this.pointB[0] - this.pointA[0]);
       }
       return this._slope;
     },
     magnitude: function(){
       if (!this._magnitude){
         this._magnitude =
-          Math.sqrt( Math.pow(this.pointB[0] - this.pointA[0], 2) + Math.pow(this.pointB[1] - this.pointA[1], 2));
+          Math.sqrt( Math.pow(this.pointB[0] - this.pointA[0], 2) +
+                     Math.pow(this.pointB[1] - this.pointA[1], 2));
       }
       return this._magnitude;
     },
@@ -223,7 +229,8 @@
       return ! this.cardinalIsSecondary() && 'STILL' !== this.cardinal();
     },
     cardinalIsSecondary:function(){
-      return -1 != this.cardinal().indexOf('_'); // the most glorious hack ever
+      // the most glorious hack ever
+      return -1 != this.cardinal().indexOf('_');
     },
     cardinal: function(){
       var absSlope = Math.abs(this.slope());
@@ -233,11 +240,15 @@
         } else if (absSlope<1){
           this._cardinal =  this.pointA[0] < this.pointB[0] ? EAST : WEST;
         } else if (absSlope>1) {
-          this._cardinal = this.pointA[1] < this.pointB[1] ? SOUTH : NORTH; // flipped! lower y values are higher
+          // flipped! lower y values are higher on the screen
+          this._cardinal = this.pointA[1] < this.pointB[1] ?
+            SOUTH : NORTH;
         } else if (this.pointA[0] < this.pointB[0]) {
-          this._cardinal = this.pointA[1] < this.pointB[1] ? SOUTH_EAST : NORTH_EAST;
+          this._cardinal = this.pointA[1] < this.pointB[1] ?
+            SOUTH_EAST : NORTH_EAST;
         } else {
-          this._cardinal = this.pointA[1] < this.pointB[1] ?  SOUTH_WEST : NORTH_WEST;
+          this._cardinal = this.pointA[1] < this.pointB[1] ?
+            SOUTH_WEST : NORTH_WEST;
         }
       }
       return this._cardinal;
@@ -277,7 +288,7 @@
   Arc.prototype = {
     startsAt: function(mouseEvent){
       var normPoint;
-      this.normalizer = getNormalizer(mouseEvent);
+      this.normalizer = getNormalizingPoint(mouseEvent);
       normPoint = this.normalize(mouseEvent);
       this.myCanvas = this.controller.arcs.newAsciiArcCanvas();
       this.controller.arcs.push(this); // wasn't sure where this belonged
