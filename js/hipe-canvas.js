@@ -9,7 +9,6 @@
 
   $.widget("ui.hipe_canvas_font_metrics", {
     _init: function() {
-      window.fm = this; puts("window.fm set.");
       this.recalculate() || puts(this.error());
     },
     error: function(msg){
@@ -53,7 +52,8 @@
       var charsWide = nh.length;
       h = parsePx(this.element.css('height'));
       var dim = [w/charsWide,h/charsHigh];
-      puts('fm dimensions w:'+w+" h:"+h+" dim:"+pt(dim)+
+      window.fm = this;
+      puts('window.fm dimensions w:'+w+" h:"+h+" dim:"+pt(dim)+
         ' in '+((new Date).getTime() - t1)+' msec');
       this.element.data('dimensions',dim);
       this.element.html(nh+'<br/>'+nh2); //just for visual debugging

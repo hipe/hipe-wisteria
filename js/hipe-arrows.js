@@ -56,13 +56,23 @@
     }
   };
 
+  var ObjectExtras = {
+    keys: function(){
+      var ret = [];
+      for(var i in self){
+        ret.push(i);
+      }
+      return ret;
+    }
+  };
+
   var PointLike = {
-    is_point_like: true,
+    is_pt: true,
     equals: function(point){
       return this[0] == point[0] && this[1] == point[1];
     },
     inspect: function(){ return "["+this[0]+"]["+this[1]+"]"; },
-
+    hashKey: function(){ return this.inspect(); },
     pointCopy: function(){
       return new Point(this[0], this[1]);
     }
@@ -168,8 +178,125 @@
       return result;
     }
   };
-
   extend(BresenhamAlgorithm, Erroneous);
+
+
+  /**
+  * we use point history and points history to detect
+  * when an arc has crossed over itself, and to draw rectangles
+  * from it.  it tracks when crossovers happen, and the outer bounds
+  * of the shape.
+  */
+  var PointHistory = function(firstPoint){
+    return extend( extend([firstPoint], ListLike), _PointHistory );
+  };
+  var _PointHistory = {
+    addPoint: function(point){
+      this.push(point);
+    },
+    depth: function(){
+      return this.length;
+    }
+  };
+  var PointsHistory = function(startPoint){
+    var me = extend([], _PointsHistory);
+    me.keyToIndex = {};
+    me._depth = 0;
+    me._lastAdded = false;
+    me._starboard = false;
+    me._port = false;
+    me._ceil = false;
+    me._floor = false;
+    return me;
+  };
+  var _PointsHistory = {
+    addPoint: function(point){
+      this._lastAdded = point;
+      var key = point.hashKey();
+      if (undefined==this.keyToIndex[key]) {
+        this.push( new PointHistory(point) );
+        this.keyToIndex[key] = this.length - 1;
+        if(this._depth == 0)
+          this._depth = 1;
+        if(this._floor===false || this._floor < point[1])
+          this._floor = point[1];
+        if(this._ceil===false || this._ceil > point[1])
+          this._ceil = point[1];
+        if(this._starboard===false || this._starboard<point[0])
+          this._starboard=point[0];
+        if(this._port===false || this._port>point[0])
+          this._port=point[0];
+      } else {
+        var ptHistory = this[this.keyToIndex[key]];
+        ptHistory.addPoint(point);
+        if (ptHistory.depth() > this._depth) {
+          this._depth = ptHistory.depth();
+        }
+      }
+    },
+    depth: function(){return this._depth;},
+    lastAdded: function(){return this._lastAdded;},
+    minLeft: function(){return this._port;},
+    maxRight: function(){return this._starboard;},
+    minTop: function(){return this._ceil;},
+    maxBottom: function(){return this._floor;}
+  };
+
+
+  var Poly = function(){
+    var me = extend([], _Poly);
+    if (arguments.length < 3){
+      return this.error("polys need at least 3 verts");
+    }
+    for(var i=0; i < arguments.length; i++){
+      me[i] = extend(arguments[i], PointLike);
+    }
+    return me;
+  };
+  extend(Poly,Erroneous);
+  var _Poly = {
+    inspect: function(){
+      var a = [];
+      for(var i=0; i < this.length; i++){
+        a.push(this[i].inspect());
+      }
+      return a.join(',');
+    },
+    buildBlitMap: function(){
+      PTS = [];
+      var veg, pts, last, last2, g, g2, p1, p2;
+      blitMap = new BlitMap();
+      veg = new Vegdor(null,null);
+      veg2 = new Vegdor(null,null);
+      last = this.length - 1;
+      for(var i=0; i<=last; i++){
+        p1 = this[i];
+        if (i==last) {
+          p2 = this[0];
+        } else {
+          p2 = this[i+1];
+        }
+        puts("i iz: "+i+" is these two: "+p1.inspect()+" and "+p2.inspect());
+        veg.changePoints(p1, p2);
+        if(veg.magnitude()>1){
+          pts = BresenhamAlgorithm.pointsInVector(veg);
+          last2 = pts.length - 1;
+          PTS[i] = pts;
+          for(var j=1; j<last2; j++){
+            veg2.changePoints(pts[j-1], pts[j]);
+            g2 = veg2.asciiLineGlyphSecondary();
+            blitMap.set(veg2.pointB[0], veg2.pointB[1], g2);
+          }
+        }
+        veg.collapse();
+        g = veg.asciiLineGlyphSecondary();
+        puts("blitting "+g+" at "+p2.inspect());
+        blitMap.set(p2[0], p2[1], g);
+      }
+      return blitMap;
+    }
+  };
+
 
   var AsciiArcCanvas = {};
   AsciiArcCanvas.prototype = {
@@ -179,20 +306,41 @@
       this.linesCache = [];
       this.snapX = options.grid[0];
       this.snapY = options.grid[1];
+      this.poly = false;
     },
     startArc: function(point){
       var myPoint = this._normalize(point);
       puts("startArc at "+myPoint.inspect());
-      this.points = extend([myPoint],ListLike);
+      this.pointsHistory = new PointsHistory();
+      this.pointsHistory.addPoint(myPoint);
       myPoint.vector = new Vegdor(myPoint, myPoint);
       myPoint.glyph = myPoint.vector.asciiArrowGlyph();
       var bm = new BlitMap();
       bm.set(myPoint[0], myPoint[1], myPoint.glyph);
       this._blit(bm);
     },
+    stopArc: function(point){
+      //var myPoint = this._normalize(point);
+      //puts("stopArc at "+myPoint.inspect()+'this is Thiz'); Thiz = this;
+      return this.pointsHistory;
+    },
+    convertToRect: function(){
+      var x1, y1, x2, y2, x3, y3, x4, y4, ph;
+      ph = this.pointsHistory;
+      x1 = x4 = ph.minLeft();
+      x2 = x3 = ph.maxRight();
+      y1 = y2 = ph.minTop();
+      y3 = y4 = ph.maxBottom();
+      this.poly = new Poly([x1,y1],[x2,y2],[x3,y3],[x4,y4]);
+      puts("i try to make rect: l:"+x1+" r:"+x3+" t:"+y1+" b:"+y3);
+      puts("i made rect for you: "+this.poly.inspect());
+      polyBlit = this.poly.buildBlitMap();
+      this.clearCanvas();
+      this._blit(polyBlit);
+    },
     extendArc: function(point){
       var myPoint, prevLineGlyph, prevPoint, blitMap, newPrevGlyph;
-      prevPoint = this.points.last();
+      prevPoint = this.pointsHistory.lastAdded();
       myPoint = this._normalize(point);
       if (prevPoint.equals(myPoint)) return;
       //puts("extending arc to "+myPoint.inspect());
@@ -201,8 +349,8 @@
       myPoint.vector = new Vegdor(prevPoint, myPoint);
       myPoint.glyph = myPoint.vector.asciiArrowGlyph();
 
-      //prevPoint.vector.changePointB(myPoint);
-      prevPoint.vector.changePoints(prevPoint, myPoint);
+      prevPoint.vector.changePointB(myPoint);
+      //prevPoint.vector.changePoints(prevPoint, myPoint);
       if (prevPoint.vector.cardinalIsSecondary()){
         prevPoint.vector.collapse();
       }
@@ -217,7 +365,7 @@
         this.blitInterceding(blitMap,myPoint);
       }
       blitMap.set(myPoint[0], myPoint[1], myPoint.glyph);
-      this.points.push(myPoint);
+      this.pointsHistory.addPoint(myPoint);
       this._blit(blitMap);
     },
     _blit: function(blitMap){
@@ -235,6 +383,16 @@
           this.matrix[i][j] = blitMap.matrix[i][j];
         }
         this.linesCache[i] = this.matrix[i].join('');
+      }
+      this.html(this.linesCache.join("\n"));
+    },
+    clearCanvas: function(){
+      for (var i=0; i<this.matrix.length; i++) {
+        this.linesCache[i] = '';
+        var last = this.matrix[i].length - 1;
+        for (var j=0; j<=last; j++){
+          this.matrix[i][j] = ' ';
+        }
       }
       this.html(this.linesCache.join("\n"));
     },
@@ -272,8 +430,10 @@
       points.last().vector.pointA = points.penultimate();
       var last = points.length - 1;
       for (var i=0; i<=last; i++) {
-        if (i>0 && i<last)
+        if (i>0 && i<last){
           points[i].vector = new Vegdor(points[i-1], points[i+1]);
+          this.pointsHistory.addPoint(points[i]);
+        }
         blitMap.set(points[i][0], points[i][1],
           points[i].vector.asciiLineGlyphSecondary());
       }
@@ -328,10 +488,12 @@
 
   /** @constructor */
   var Vegdor = function(pointA, pointB){
-    if (!pointA.is_point_like) extend(pointA, PointLike);
-    if (!pointB.is_point_like) extend(pointB, PointLike);
-    this.pointA = pointA;
-    this.pointB = pointB;
+    if (null!==pointA && null!==pointB) {
+      if (!pointA.is_pt) extend(pointA, PointLike);
+      if (!pointB.is_pt) extend(pointB, PointLike);
+      this.pointA = pointA;
+      this.pointB = pointB;
+    }
   };
 
   Vegdor.prototype = {
@@ -385,7 +547,9 @@
       return -1 != this.cardinal().indexOf('_');
     },
     cardinal: function(){
+      var c = true;
       if (!this._cardinal) {
+        c = false;
         var absSlope = Math.abs(this.slope());
         if (isNaN(absSlope)) {
           this._cardinal = STILL;
@@ -403,6 +567,7 @@
             SOUTH_WEST : NORTH_WEST;
         }
       }
+      //puts ('first card: '+this._cardinal+" c'd: "+c);
       return this._cardinal;
     },
 
@@ -411,7 +576,9 @@
     CoffeeCup: 0.403,
     OnMujiGraphPaper: 2.48,
     secondCardinal: function(){
+      var cached = true;
       if (!this._second_cardinal) {
+        cached = false;
         //var absSlope, delta, absDelta, slopeExists, up, right;
         delta = this.pointDelta();
         if (delta[0]==0 && delta[1]==0) {
@@ -441,25 +608,24 @@
             } else {
               var slopeExists = (absDelta[1] != 0);
               if (slopeExists) {
-                puts ("slope shouldexist ");
                 absSlope = Math.abs(this.slope());
               } else {
-                puts ("slope should not ext");
+                absSlope = NaN;
               }
               if (delta[1] < 0) {
                 this._second_cardinal =
-                  (slopeExists && absSlope >= this.OnMujiGraphPaper) ?
+                  (!slopeExists || absSlope >= this.OnMujiGraphPaper) ?
                     NORTH : (delta[0] > 0 ? NORTH_EAST : SOUTH_EAST);
               } else {
                 this._second_cardinal =
-                  (slopeExists && absSlope >= this.OnMujiGraphPaper) ?
+                  (!slopeExists || absSlope >= this.OnMujiGraphPaper) ?
                     SOUTH : (delta[0] > 0 ? SOUTH_EAST : SOUTH_WEST);
               }
             }
           }
         }
       }
-      puts (this._second_cardinal);
+      //puts("second card: "+this._second_cardinal+' cached: '+cached);
       return this._second_cardinal; // cacheing never looked so good
     },
     asciiLineGlyphSecondary: function(){
@@ -476,11 +642,13 @@
       this.clearCache();
     },
     changePoints: function(pointA, pointB){
-      this.point = pointA; this.pointB = pointB;
+      this.pointA = pointA;
+      this.pointB = pointB;
       this.clearCache();
     },
     clearCache: function(){
       this._cardinal = null;
+      this._second_cardinal = null;
       this._magnitude = null;
       this._slope = null;
     },
@@ -516,6 +684,12 @@
       } else {
         this.myCanvas.extendArc(normPoint);
         this.points.push(normPoint);
+      }
+    },
+    stopsAt: function(mouseEvent){
+      var pointsHistory = this.myCanvas.stopArc(this.normalize(mouseEvent));
+      if (pointsHistory.depth() > 1) {
+        this.myCanvas.convertToRect();
       }
     },
     normalize: function(mouseEvent){
@@ -566,6 +740,24 @@
       if (lastArc){
         lastArc.moveTo(event);
       }
+    },
+    /* @todo we are using the api all wrong */
+    _mouseUp: function(event) {
+      var arc;
+      puts("got mouse up event Ev"); window.Ev = event;
+      $(document)
+        .unbind('mousemove.'+this.widgetName, this._mouseMoveDelegate)
+        .unbind('mouseup.'+this.widgetName, this._mouseUpDelegate);
+
+      if (this._mouseStarted) {
+        this._mouseStarted = false;
+        this._preventClickEvent =
+          (event.target == this._mouseDownEvent.target);
+        this._mouseStop(event);
+      }
+      if ((arc = this.arcs.last()))
+        arc.stopsAt(event);
+      return false;
     }
   }));
 
