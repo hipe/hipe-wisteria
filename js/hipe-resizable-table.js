@@ -378,7 +378,7 @@
     }
   };
 
-  $.widget("ui.resizable_table", $.extend({}, $.ui.mouse, {
+  $.widget("ui.hipe_resizable_table", $.extend({}, $.ui.mouse, {
     error: function(msg){
       puts("error from ResizableTable (window.T): "+msg);
       return false;

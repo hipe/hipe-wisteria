@@ -1,4 +1,8 @@
-(function($) {
+(function(x) {
+  var $ = x;
+
+  if (!$.widget)
+    throw new Error("to use arrows.js you need jquery.ui.core.js!");
 
   var extend = function(target,source){
     for (var i in source){
@@ -12,7 +16,8 @@
     return parseFloat(capture);
   };
 
-  var puts = window.console.log;
+  var puts = window.console ? window.console.log : function(m){};
+
 
   var error = function(msg){
     var myMsg = ("ERROR! " + msg);
@@ -24,18 +29,52 @@
     return false;
   };
 
+
+  var Erroneous = {
+    clearErrors: function(){
+      var self = this;
+      this.lastErrorMessage = null;
+    },
+    error: function(msg){
+      var self = this;
+      if (msg) {
+        self.lastErrorMessage = msg;
+        return false;
+      } else {
+        return this.lastErrorMessage;
+      }
+    }
+  };
+
   var ListLike = {
+    is_list_like: true,
     last: function(){
       return this.length == 0 ? false : this[this.length - 1];
     }
   };
 
   var PointLike = {
+    is_point_like: true,
     equals: function(point){
       return this[0] == point[0] && this[1] == point[1];
     },
-    inspect: function(){ return "["+this[0]+"]["+this[1]+"]"; }
+    inspect: function(){ return "["+this[0]+"]["+this[1]+"]"; },
+
+    /**
+    * this is called pointCopy because while this may not be
+    * a point object itself, what it returns is.
+    */
+    pointCopy: function(){
+      return new Point(this[0], this[1]);
+    }
   };
+
+  /** @constructor */
+  var Point = function(x,y){
+    this[0] = x;
+    this[1] = y;
+  };
+  Point.prototype = PointLike;
 
   var getNormalizingPoint = function(mouseEvent){
     var el = $(mouseEvent.target);
@@ -68,6 +107,59 @@
     }
   };
 
+  /**
+  * adapted from _AI for Game Developers_, Bourg & Seeman,
+  * O'Reilly, 2004.  page 14.
+  */
+  var BresenhamAlgorithm = {
+    /**
+    * @return an array of points or (false and set error)
+    *
+    * whether or not we use references to or new copies of the
+    * start and endpoints of the vector is undefined! (in flux)
+    *
+    * @internal{
+    *   we reduce the code in half by letting 'a' and 'b' point to
+    *   either 'x' and 'y' or 'y' and 'x' based on which abs delta is longer
+    * }
+    */
+    pointsInVector: function(vector){
+      var result, endPoint, delta, step, absDelta, fraction, nextPoint, done;
+      var a,b;
+      if (vector.magnitude() <= 1) return this.error(
+        "Won't calculate interceding points for short vectors,"+
+        "even though it might be ok"
+      );
+      result = [vector.pointA];
+      endPoint = vector.pointB;
+      delta = vector.pointDelta();
+      step = [delta[0] < 0 ? -1 : 1,delta[1] < 0 ? -1 : 1];
+      absDelta = [Math.abs(delta[0]), Math.abs(delta[1])];
+      if (absDelta[0] > absDelta[1]) {a=0; b=1;} else {a=1; b=0;}
+      fraction = absDelta[a] * 2 - absDelta[b];
+      nextPoint = vector.pointA.pointCopy();
+      done = nextPoint.equals(endPoint);
+      while (!done){
+        if (fraction >= 0) {
+          nextPoint[b] += step[b];
+          fraction -= delta[a];
+        }
+        nextPoint[a] += step[a];
+        fraction += delta[b];
+        if (nextPoint.equals(endPoint)){
+          done = true;
+          result.push(endPoint);
+        } else {
+          result.push(nextPoint);
+          nextPoint = nextPoint.pointCopy();
+        }
+      }
+      return result;
+    }
+  };
+
+  extend(BresenhamAlgorithm, Erroneous);
+
   var AsciiArcCanvas = {};
   AsciiArcCanvas.prototype = {
     initAsciiArcCanvas: function(options){
@@ -88,7 +180,7 @@
       this._blit(bm);
     },
     extendArc: function(point){
-      //var myPoint, prevLineGlyph, prevPoint, blitMap, newPrevGlyph;
+      var myPoint, prevLineGlyph, prevPoint, blitMap, newPrevGlyph;
       prevPoint = this.points.last();
       myPoint = this._normalize(point);
       if (prevPoint.equals(myPoint)) return;
@@ -111,7 +203,7 @@
         blitMap.set(prevPoint[0],prevPoint[1],newPrevGlyph);
       }
       if (myPoint.vector.magnitude() > 1) {
-        //this.blitInterceding(blitMap,myPoint);
+        this.blitInterceding(blitMap,myPoint);
       }
       blitMap.set(myPoint[0], myPoint[1], myPoint.glyph);
       this.points.push(myPoint);
@@ -135,6 +227,25 @@
       }
       this.html(this.linesCache.join("\n"));
     },
+
+    /**
+    * This is called when the last mouse move went farther in one "sample"
+    * than one of our squares ("pixels"), and if we didn't do this there would
+    * be breaks in the line.  Note that for now, this may be the only way
+    * that we will end up with cardinal directions in points that are not
+    * among the four primaries?
+    *
+    * use Bresenham to put interceding glyphs on the blitMap
+    * @todo this won't be necessary in canvas context (?)
+    */
+    blitInterceding: function(blitMap,point){
+      var points =
+        BresenhamAlgorithm.pointsInVector(point.vector);
+      if (!points) return this.error(BresenhamAlgorithm.error());
+      puts("wow we have interceding POINTS"); window.POINTS = points;
+      return false;
+    },
+
     _normalize: function(point){
       var myPoint = [Math.floor(point[0] / this.snapX),
                      Math.floor(point[1] / this.snapY)];
@@ -182,10 +293,12 @@
 
   /** @constructor */
   var Vegdor = function(pointA, pointB){
+    if (!pointA.is_point_like) extend(pointA, PointLike);
+    if (!pointB.is_point_like) extend(pointB, PointLike);
     this.pointA = pointA;
     this.pointB = pointB;
   };
-  window.Vector = Vegdor;
+
   Vegdor.prototype = {
 
     asciiLineGlyphs : {
@@ -224,6 +337,10 @@
                      Math.pow(this.pointB[1] - this.pointA[1], 2));
       }
       return this._magnitude;
+    },
+    pointDelta: function(){
+      return [this.pointB[0] - this.pointA[0],
+              this.pointB[1] - this.pointA[1]];
     },
     cardinalIsPrimary: function(){
       return ! this.cardinalIsSecondary() && 'STILL' !== this.cardinal();
@@ -324,7 +441,21 @@
   };
 
 
-  $.widget("ui.arrows", $.extend({}, $.ui.mouse, {
+  /**
+  * @todo this is an ugly hack b/c we are anal about namespaces
+  */
+  $.widget("ui.hipe_arc_lib", $.extend({}, {
+    _init: function() {
+      var lib = {
+        'Bresenham'         : BresenhamAlgorithm,
+        'Vector'            : Vegdor,
+        'Point'             : Point
+      };
+      this.element.data("library", lib);
+    }
+  }));
+
+  $.widget("ui.hipe_arrows", $.extend({}, $.ui.mouse, {
 
     _init: function() {
       self = this;

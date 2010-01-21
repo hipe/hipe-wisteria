@@ -5,16 +5,16 @@
   <link rel="stylesheet" href="all.css" type="text/css" />
   <script type="text/javascript" src="../../../jquery/latest.js"></script>
   <script type="text/javascript" src="../../../jquery/latest/ui/jquery.ui.core.js"></script>
-  <script type="text/javascript" src="../../../canvas.js"></script>
-  <script type="text/javascript" src="../../../arrows.js"></script>
+  <script type="text/javascript" src="../../../hipe-canvas.js"></script>
+  <script type="text/javascript" src="../../../hipe-arrows.js"></script>
   <script type="text/javascript">
     $(function() {
       var grid;
       var puts = window.console.log;
-      var fm = $('#font-metrics-1').canvas_font_metrics();
+      var fm = $('#font-metrics-1').hipe_canvas_font_metrics();
       if (grid=fm.data('dimensions')) {
-        $('#canvas-1').arrows({grid: grid});
-        $('#canvas-1').canvas_dots({grid: grid});
+        $('#canvas-1').hipe_arrows({grid: grid});
+        $('#canvas-1').hipe_canvas_dots({grid: grid});
       }
       //$("#square-1").resizable_table({ grid: [gridw, gridh] });  /* must come before draggable.  why? */
       //$("#square-1").draggable({ grid: [gridw,gridh], containment: 'parent'});

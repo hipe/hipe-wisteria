@@ -7,7 +7,7 @@
   };
   var pt = function(pt){ return "["+pt[0]+"]["+pt[1]+"]"; };
 
-  $.widget("ui.canvas_font_metrics", {
+  $.widget("ui.hipe_canvas_font_metrics", {
     _init: function() {
       window.fm = this; puts("window.fm set.");
       this.recalculate() || puts(this.error());
@@ -62,7 +62,7 @@
   });
 
 
-  $.widget("ui.canvas_dots", {
+  $.widget("ui.hipe_canvas_dots", {
     _init: function() {
       this.context = this.element[0].getContext("2d");
       this.context.fillStyle = this.element.css('color');
