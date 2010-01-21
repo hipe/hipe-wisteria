@@ -50,6 +50,9 @@
     is_list_like: true,
     last: function(){
       return this.length == 0 ? false : this[this.length - 1];
+    },
+    penultimate: function(){
+      return this.length >= 2 ? this[this.length - 2] : false;
     }
   };
 
@@ -113,7 +116,7 @@
   */
   var BresenhamAlgorithm = {
     /**
-    * @return an array of points or (false and set error)
+    * @return a ListLike array of points or (false and set error)
     *
     * whether or not we use references to or new copies of the
     * start and endpoints of the vector is undefined! (in flux)
@@ -161,6 +164,7 @@
           nextPoint = nextPoint.pointCopy();
         }
       }
+      extend(result, ListLike);
       return result;
     }
   };
@@ -244,13 +248,37 @@
     *
     * use Bresenham to put interceding glyphs on the blitMap
     * @todo this won't be necessary in canvas context (?)
+    *
+    * @precondition: point.vector
+    *
+    * the resulting series of points will have the original pointA and pointB
+    * at the endcaps.  make the new interceding points (0..n) each have
+    * a vector pointing to the point before it and point after it.  Update
+    * the two endcap vectors to be self and intermediate point,
+    # (or other endcap when there are no new points.)
+    * and update the 2 + (0..n) glyphs in the blitMap
     */
-    blitInterceding: function(blitMap,point){
+    blitInterceding: function(blitMap, point){
       var points =
         BresenhamAlgorithm.pointsInVector(point.vector);
       if (!points) return this.error(BresenhamAlgorithm.error());
-      puts("wow we have interceding POINTS"); window.POINTS = points;
-      return false;
+      if (points.length < 2) return this.error("expecting at least 2 pts");
+      if (! points[0].vector || ! points.last().vector ){
+        return this.error("expecting original pts w/ vectors ?");
+      }
+      points[0].vector.pointA = points[0];
+      points[0].vector.pointB = points[1];
+      points.last().vector.pointB = points.last();
+      points.last().vector.pointA = points.penultimate();
+      var last = points.length - 1;
+      for (var i=0; i<=last; i++) {
+        if (i>0 && i<last)
+          points[i].vector = new Vegdor(points[i-1], points[i+1]);
+        blitMap.set(points[i][0], points[i][1],
+          points[i].vector.asciiLineGlyphSecondary());
+      }
+      puts("blit probably "+points.length+" bresenhamized glyphs");
+      return true;
     },
 
     _normalize: function(point){
@@ -357,8 +385,8 @@
       return -1 != this.cardinal().indexOf('_');
     },
     cardinal: function(){
-      var absSlope = Math.abs(this.slope());
       if (!this._cardinal) {
+        var absSlope = Math.abs(this.slope());
         if (isNaN(absSlope)) {
           this._cardinal = STILL;
         } else if (absSlope<1){
@@ -376,6 +404,66 @@
         }
       }
       return this._cardinal;
+    },
+
+    // somehow i think some trig would make this prettier,
+    // alghough i never thought i'd hear myself say that.
+    CoffeeCup: 0.403,
+    OnMujiGraphPaper: 2.48,
+    secondCardinal: function(){
+      if (!this._second_cardinal) {
+        //var absSlope, delta, absDelta, slopeExists, up, right;
+        delta = this.pointDelta();
+        if (delta[0]==0 && delta[1]==0) {
+          this._second_cardinal = STILL;
+        } else {
+          absDelta = [Math.abs(delta[0]), Math.abs(delta[1])];
+          if (absDelta[0] == absDelta[1]) {
+             // they are not both zero because we checked above,
+             // and since they are equal they are both not zero.
+             up = delta[1] < 0;
+             right = delta[0] > 0;
+             this._second_cardinal = up ?
+               ( right ? NORTH_EAST : NORTH_WEST ) :
+               ( right ? SOUTH_EAST : SOUTH_WEST );
+          } else {
+            if (absDelta[0] > absDelta[1]) {
+              absSlope = Math.abs(this.slope());
+              if (delta[0] > 0) {
+                // it's not equal to zero because it's absolute value
+                // is greater than another absolute value
+                this._second_cardinal = (absSlope <= this.CoffeeCup) ?
+                  EAST : (delta[1] > 0 ? SOUTH_EAST : NORTH_EAST);
+              } else {
+                this._second_cardinal = (absSlope <= this.CoffeeCup) ?
+                  WEST : (delta[1] > 0 ? SOUTH_WEST : NORTH_WEST);
+              }
+            } else {
+              var slopeExists = (absDelta[1] != 0);
+              if (slopeExists) {
+                puts ("slope shouldexist ");
+                absSlope = Math.abs(this.slope());
+              } else {
+                puts ("slope should not ext");
+              }
+              if (delta[1] < 0) {
+                this._second_cardinal =
+                  (slopeExists && absSlope >= this.OnMujiGraphPaper) ?
+                    NORTH : (delta[0] > 0 ? NORTH_EAST : SOUTH_EAST);
+              } else {
+                this._second_cardinal =
+                  (slopeExists && absSlope >= this.OnMujiGraphPaper) ?
+                    SOUTH : (delta[0] > 0 ? SOUTH_EAST : SOUTH_WEST);
+              }
+            }
+          }
+        }
+      }
+      puts (this._second_cardinal);
+      return this._second_cardinal; // cacheing never looked so good
+    },
+    asciiLineGlyphSecondary: function(){
+      return this.asciiLineGlyphs[this.secondCardinal()];
     },
     asciiLineGlyph: function(){
       return this.asciiLineGlyphs[this.cardinal()];
