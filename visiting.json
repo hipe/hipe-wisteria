@@ -1,55 +1,89 @@
-[ "description:","one day we might etc.",
-  "comments:",[
-    "this is a data file for the experimental 'visit' utility",
-    "note that directories in this file must have trailing slashes."],
-  "list:",[[
+[ "comments:",                                                              [
+
+    "This is a data file for the experimental 'visit' utility. ",
+    "Try runing 'visit -h' from the command line (a ruby script",
+    "in the root of the project) for details.",
+
+    "Directory names in this file must have trailing slashes.",
+
+    "Although paths could in theory be absolute it is recommended ",
+    "that you make them relative to the root of your project folder.",
+
+    "The structure syntax of this file is in flux, but hopefully it is ",
+    "semi-self evident.  Current the only relevant nodes for processing",
+    "this file are /['list'] and each node under /['list'] must have either",
+    "'file', 'files', or ('directory' and 'files').  a 'file' node can be ",
+    "a string or source/target pair.  'directory' must be a source/target",
+    "pair.  A 'directory' node can have a 'rename' search/replace pair. ",
+    "any of the nodes under /['list'] can have a 'skip' boolean.",
+
+    "all other data (including comment strings like this) are parsed but ",
+    "ignored. This includes the 'name' nodes (for now).",
+
+    "Even though they're only used for self-documentation purposes, we will",
+    "for now keep the names of the nodes lowercase and without punctuation ",
+    "except for the occasional '-'.",
+
+    "99% of parse errors in this file come from accidental trailing commas.",
+
+    "yaml anyone?"
+                                                                            ],
 
 
-      "name:","latest jquery",
+  "list:",[
+
+                                                                            [
+      "name:","latest jquery from the jquery git clone",
       "file:",{
          "source":"./nogit/jquery-git-checkout/dist/jquery.js",
-         "target":"./js/jquery/latest.js"}],[
-
-
+         "target":"./js/jquery/latest.js"}
+                                                                            ],
+                                                                            [
+      "name:","qunit from the jquery git clone",
+      "files:",[{
+          "source" : "./nogit/jquery-git-checkout/test/qunit/qunit/qunit.js",
+          "target" : "./js/test/external/qunit.js"},{
+          "source" : "./nogit/jquery-git-checkout/test/qunit/qunit/qunit.css",
+          "target" : "./js/test/external/qunit.css"}]
+                                                                            ],
+                                                                            [
+      "name:","jquery ui dev bundle subset",
+      "directory:",{
+        "source":"./nogit/jquery-dev-bundle/development-bundle/ui/",
+        "target":"./js/jquery/latest/ui/"},
+      "files:",[
+        "ui.core.js",
+        "ui.draggable.js",
+        "ui.resizable.js"],
+      "rename:",{"search":"(^)(.+)$","replace":"jquery.\\2"},
+      "comments:",[
+          "we would rather use the svn checkout from the ui project",
+          "but those are breaking stuff for now(?) see other entry",
+          "in this file called 'jquery UI from svn checkout.'"]
+                                                                            ],
+                                                                            [
       "name:","things to run ui-style tests",
+      "skip:", true,
+      "comment:", "we aren't using this yet, we only have visual tests.",
       "directory:",{
         "source" : "./nogit/ui-svn-checkout/",
         "target" : "./js/"},
       "files:", [{
-         "source" : "tests/unit/testsuite.css",
-          "target" :  "test/unit/testsuite.css"},{
-          "source" : "tests/unit/testsuite.js",
-          "target" :  "test/unit/testsuite.js"},{
-          "source" : "external/testrunner-r6588.js",
-          "target" :  "test/unit/testrunner-r6588.js"},{
-          "source" : "tests/jquery.simulate.js",
-          "target" :  "test/unit/jquery.simulate.js"}]],[
-
-
-      "name:","things to run tests from jquery",
-      "files:",[{
-          "source" : "./nogit/jquery-git-checkout/test/qunit/qunit/qunit.js",
-          "target" : "./js/test/unit/qunit.js"},{
-          "source" : "./nogit/jquery-git-checkout/test/qunit/qunit/qunit.css",
-          "target" : "./js/test/unit/qunit.css"}]],[
-
-
-      "name:","the files we are using, the dev bundle subset",
-      "comment:","this should be mutually exclusive with the next entry",
-      "directory:",{
-        "source":"./nogit/jquery-dev-bundle/development-bundle/ui/",
-        "target":"./js/jquery/latest/ui/"},
-      "rename:",{"search":"(^)(.+)$","replace":"jquery.\\2"},
-      "files:",[
-        "ui.core.js",
-        "ui.draggable.js",
-        "ui.resizable.js"]],[
-
-     "name:","latest jquery UI stuff",
-     "comments:",[
-       "this should be mutually exclusive with the previous entry",
-       "this is breaking stuff. skip for now"],
+        "source" : "tests/unit/testsuite.css",
+        "target" : "test/external/testsuite.css"},{
+        "source" : "tests/unit/testsuite.js",
+        "target" : "test/external/testsuite.js"},{
+        "source" : "external/testrunner-r6588.js",
+        "target" : "test/external/testrunner-r6588.js"},{
+        "source" : "tests/jquery.simulate.js",
+        "target" : "test/external/jquery.simulate.js"}]
+                                                                          ],
+                                                                          [
+     "name:","jquery ui from svn checkout",
      "skip:", true,
+     "comments:",[
+       "this should be mutually exclusive with 'jquery ui dev bundle subset'",
+       " entry in this file.  this is breaking stuff. skip for now. @todo"],
      "directory:",{
        "source":"./nogit/ui-svn-checkout/ui/",
        "target":"./js/jquery/latest/ui/"},
@@ -58,6 +92,6 @@
         "jquery.ui.draggable.js",
         "jquery.ui.resizable.js"],
       "_rename:",{"search":"^jquery\\.(.+)$","replace":"\\1"}
-    ]
+                                                                            ]
   ]
 ]

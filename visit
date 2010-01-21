@@ -8,13 +8,55 @@ require 'hipe-core/struct/table'
 
 module Hipe
   class Visiting
+    class ApplicationRuntimeError < RuntimeError; end
+    class DataFileException < ApplicationRuntimeError; end
     include Interfacey::Service
     interface.might do
       speaks :cli
       describe <<-desc
         This this is an experimental hack to achieve something like
-        svn:externals but only for a subset of files
+        svn:externals or git:submodule but only for a subset of files from
+        other projects.  It allows us to target certain files from both svn
+        and git projects in one go, and pull them in to our project.  (In
+        fact, for now this is unaware of version control.  It is simply
+        a mechanism to maintain a list of source files, and the target files
+        the should be copied to.)
+
+        The only things (for now) this gives us over a simple shell script
+        with a flat list of "cp" commands is:
+          *  a data file in a tree-like structure as opposed to a flat list to
+             allow operations all files from specific folders and to make it a
+             bit clearer(?).
+          *  regular expression name mapping filters, if for example
+             internally you want to represent all source files from a certain
+             directory named something like like "ui.foo-bar.js" as
+            "jquery.ui.foo-bar.js" or vice-versa.
+          *  the ability to turn on or turn off the copying of entries in
+             your data file with the "skip" attribute.
+          *  dry-runs to preview the files that would be copied.
+
+        From the perspective of our git repository these files will be
+        indiscernable from our own internal files so it is therefor
+        recommended that for all these external source files, your target
+        files (copies of them) live in something like an "externals/" or a
+        "vendor/" folder, just for clarity.
+
+        The data file is plain old json but sometimes uses a weird syntax to
+        allow something like ordered hashes (i.e. associative arrays). e.g.:
+        ["key1:","value1","key2:","value2"] (note the colons at the end of
+        the strings).  This was done so that if the data files are ever
+        machine-generated they can maintain the order of keys, if for
+        example you wanted to keep the more human-relevant entries near
+        the top of the list; that is, readability, but for now it seems
+        the opposite effect was achieved.
+
+        (Note also that when "unmarshalling" data files this could mistake
+        and ordinary array with an associative array iff it has an even
+        number of keys and each even key is a string ending with ":".)
+
       desc
+
+
       responds_to "help", "page << self", :aliases=>['-h','--help','-h']
       default_request "help"
       responds_to "list", "show list of visiting files"
@@ -63,6 +105,7 @@ module Hipe
 
       KeyLike = /^([-a-z0-9_ ]+):$/
       module Unmarshal
+        class Fail < RuntimeError; end
         def self.hash json, path
           result = {}
           json.each do |k,v|
@@ -84,7 +127,12 @@ module Hipe
             (0..len-2).step(2) do |i|
               key = KeyLike.match(json[i]).captures[0]
               child_path = %|#{path}/#{key}|
-              result[key] = unmarshal(json[i+1],child_path)
+              if result.has_key?(key)
+                raise Fail.new(%|Won't clobber existing #{key} at |<<
+                  %|#{child_path}|)
+              else
+                result[key] = unmarshal(json[i+1],child_path)
+              end
             end
             result.attr_accessors(*result.keys)
           else
@@ -105,10 +153,19 @@ module Hipe
       end
     end
 
+
+
     def struct
       @struct ||= begin
         pre_struct = JSON.parse(File.read(@path))
-        Json.unmarshal pre_struct, @path
+        begin
+          result = Json.unmarshal pre_struct, @path
+        rescue Json::Unmarshal::Fail => e
+          raise DataFileException.new(
+            "Issue with reading json file: "+e.message
+          )
+        end
+        result
       end
     end
 
@@ -200,22 +257,26 @@ module Hipe
     end
 
     def copy opts
-      puts "copying "+file_pairs.size.to_s+" files over"
-      each_file_pair do |src, tgt|
-        file_exists(src) or return error
-        file_exists(File.dirname(tgt)+'/') or return error
-        fake_command = "copy #{src} #{tgt}"
-        if File.exist?(tgt) && File.read(tgt)==File.read(src)
-          puts "no difference: #{src} #{tgt}"
-        elsif opts.dry
-          puts fake_command
-        else
-          puts fake_command
-          FileUtils.copy(src, tgt)
+      begin
+        puts "copying "+file_pairs.size.to_s+" files over"
+        each_file_pair do |src, tgt|
+          file_exists(src) or return error
+          file_exists(File.dirname(tgt)+'/') or return error
+          fake_command = "copy #{src} #{tgt}"
+          if File.exist?(tgt) && File.read(tgt)==File.read(src)
+            puts "no difference: #{src} #{tgt}"
+          elsif opts.dry
+            puts fake_command
+          else
+            puts fake_command
+            FileUtils.copy(src, tgt)
+          end
+          sleep(0.67) unless opts.fast
         end
-        sleep(0.67) unless opts.fast
+        'done.'
+      rescue ApplicationRuntimeError => e
+        return Interfacey::ResponseLite.new(:error=>e.message)
       end
-      'done.'
     end
 
     def file_exists path
@@ -240,4 +301,4 @@ module Hipe
   end
 end
 
-puts Hipe::Visiting.new.cli_run(ARGV) if $PROGRAM_NAME == __FILE__
+puts Hipe::Visiting.new.cli_run(ARGV).to_s if $PROGRAM_NAME == __FILE__
