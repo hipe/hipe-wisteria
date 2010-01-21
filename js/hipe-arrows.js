@@ -60,10 +60,6 @@
     },
     inspect: function(){ return "["+this[0]+"]["+this[1]+"]"; },
 
-    /**
-    * this is called pointCopy because while this may not be
-    * a point object itself, what it returns is.
-    */
     pointCopy: function(){
       return new Point(this[0], this[1]);
     }
@@ -71,10 +67,11 @@
 
   /** @constructor */
   var Point = function(x,y){
-    this[0] = x;
-    this[1] = y;
+    var arr = [x,y];
+    extend(arr, PointLike);
+    return arr;
   };
-  Point.prototype = PointLike;
+  //Point.prototype = PointLike;
 
   var getNormalizingPoint = function(mouseEvent){
     var el = $(mouseEvent.target);
@@ -110,6 +107,9 @@
   /**
   * adapted from _AI for Game Developers_, Bourg & Seeman,
   * O'Reilly, 2004.  page 14.
+  * modified origininal, which didn't handle the simple
+  * base cases of going straight up or down, or straight left
+  * or right.
   */
   var BresenhamAlgorithm = {
     /**
@@ -133,21 +133,28 @@
       result = [vector.pointA];
       endPoint = vector.pointB;
       delta = vector.pointDelta();
-      step = [delta[0] < 0 ? -1 : 1,delta[1] < 0 ? -1 : 1];
+      step = [
+        delta[0] == 0 ? 0 : (delta[0] < 0 ? -1 : 1 ),
+        delta[1] == 0 ? 0 : (delta[1] < 0 ? -1 : 1 )
+      ];
       absDelta = [Math.abs(delta[0]), Math.abs(delta[1])];
       if (absDelta[0] > absDelta[1]) {a=0; b=1;} else {a=1; b=0;}
       fraction = absDelta[a] * 2 - absDelta[b];
       nextPoint = vector.pointA.pointCopy();
       done = nextPoint.equals(endPoint);
-      while (!done){
+      var insane = 0; sanity = 100;
+      while (!done) {
+        if (insane++ > sanity)
+          return this.error("exceded sanity limit of "+sanity);
         if (fraction >= 0) {
           nextPoint[b] += step[b];
           fraction -= delta[a];
         }
         nextPoint[a] += step[a];
         fraction += delta[b];
-        if (nextPoint.equals(endPoint)){
+        if (nextPoint[a] == endPoint[a]){
           done = true;
+          // next point can be off the map at this point
           result.push(endPoint);
         } else {
           result.push(nextPoint);
