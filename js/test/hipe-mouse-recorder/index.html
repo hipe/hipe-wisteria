@@ -1,18 +1,23 @@
 <!doctype html>
 <html lang="en">
 <head>
-  <title>hipe arcs visual test</title>
+  <title>hipe recording</title>
   <link rel="stylesheet" href="css.css" type="text/css" />
   <script type="text/javascript" src="../../jquery/latest.js"></script>
   <script type="text/javascript" src="../../jquery/latest/ui/jquery.ui.core.js"></script>
   <script type="text/javascript" src="js.js"></script>
   <script type="text/javascript">
   $(function() {
-    $('#one-wrapper-to-rule-them-all').hipe_mouse_recorder();
-    });
+    var el = $('#one-wrapper-to-rule-them-all');
+    el.hipe_mouse_recorder({name: 'tester'});
+    var cnt = el.data('controller');
+    cnt.setTarget(el);
+  });
   </script>
 </head>
   <body>
+
+
     <div>
       <h2>i am some header</h2>
     </div>
