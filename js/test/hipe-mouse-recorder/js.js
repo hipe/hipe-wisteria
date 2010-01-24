@@ -1,13 +1,16 @@
 (function(x) {
   var $ = x;
 
+  Abbreviations = [
+    ['mousemove','mm']
+  ];
+
   // var puts = window['console'] ? window.console.log : function(m){};
   var puts = function(m){
     if (window.console)
       window.console.log(m);
     else
       alert(m);
-
   };
 
   var error = function(msg){ throw new Exception(msg); };
@@ -146,12 +149,46 @@
       this.statusEl.html(msg);
     },
     view: function(){
+      if (!window.JSON) {
+        return this.softError("no native JSON implementation -- we need that one script."+
+        "  or just use FF");
+      }
       if (!this.recordings || this.recordings.size==0) {
-        this.softError('no recordings to view');
+        return this.softError('no recordings to view');
       } else {
         this.setStatusMessage('viewing...');
       }
+      this.encode(this.recordings);
+      $('html').html(JSON.stringify(this.recordings));
       return false;
+    },
+    encode: function(recordings){
+      var map = this.getEncodingMap();
+      for (var i=0; i < recordings.length; i++) {
+        if (map[recordings[i][0]]) {
+          recordings[i][0] = map[recordings[i][0]];
+        }
+      }
+    },
+    getEncodingMap: function(){
+      if (!this.encodingMap) {
+        result = {};
+        for (var i=0; i<Abbreviations.length; i++){
+          result[Abbreviations[i][0]] = Abbreviations[i][1];
+        }
+        this.encodingMap = result;
+      }
+      return this.encodingMap;
+    },
+    getDecodingMap: function(){
+      if (!this.decodingMap) {
+        result = {};
+        for (var i=0; i<Abbreviations.length; i++){
+          result[Abbreviations[i][1]] = Abbreviation[i][0];
+        }
+        this.decodingMap = result;
+      }
+      return this.decodingMap;
     },
     normalizeMouseEventPoint: function(e){
       if (!this.normalizer) {
@@ -164,10 +201,8 @@
     },
     mousedown: function(e,e2){
       if(e2) e=e2;
-      puts("md! E1 and E2"); E1 = e; E2 = e2;
       var pt;
       if (this.canvasEl[0] == e.target) {
-        puts("target yes");
         this.md = true; // mouse dragging
         pt = this.normalizeMouseEventPoint(e);
         switch(this.state) {
@@ -186,7 +221,6 @@
     },
     mousemove: function(e,e2){
       if(e2) e=e2;
-      puts("mm with mme1 && mme2"); mme1 = e; mme2 = e2;
       var pt = this.normalizeMouseEventPoint(e);
       switch(this.state){
         case 'ready':
@@ -201,7 +235,6 @@
     },
     mouseup: function(e,e2){
       if(e2) e=e2;
-      puts("mu with mue1 && mue2"); mue1 = e; mue2 = e2;
       this.md = false; // mouse dragging
       var pt = this.normalizeMouseEventPoint(e);
       switch(this.state){
@@ -210,7 +243,7 @@
           this.goTransientDot(pt, this.transCool);
           break;
         case 'recording':
-          this.recordMouseEvent(e,'mousemove',pt);
+          this.recordMouseEvent(e,'mouseup',pt);
           this.goTransientDot(pt, this.recCool);
           break;
       }
