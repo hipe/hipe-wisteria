@@ -11,7 +11,7 @@
     var el = $('#one-wrapper-to-rule-them-all');
     el.hipe_mouse_recorder({name: 'tester'});
     var cnt = el.data('controller');
-    cnt.setTarget(el);
+    cnt.setTarget($('#one-wrapper-to-rule-them-all canvas'));
   });
   </script>
 </head>
@@ -23,7 +23,7 @@
     </div>
 
     <div id='one-wrapper-to-rule-them-all'>
-      <canvas id='the-one-canvas' width='500' height='309'>
+      <canvas width='500' height='309'>
       </canvas>
       <div class='controls'>
         <a href='#' class='rec'><span class='unter'>r</span>ec</a>&nbsp;

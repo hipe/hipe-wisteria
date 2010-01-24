@@ -57,7 +57,7 @@
       switch(e.charCode){
         case 114: this.rec(); return true;
         case 115: this.stop(); return true;
-        case 112: this.pb();  return true;
+        case 112: this.playback();  return true;
         case 118: this.view();  return true;
       }
       return false;
@@ -73,7 +73,8 @@
     },
     recordMouseEvent: function(event, type, normPoint){
       if (null===this.startTime) {
-        this.startTime = (new Date).getTime();
+        //this.startTime = (new Date).getTime();
+        this.startTime = event.timeStamp;
         this.recordings = [];
       }
       var timeOffset = event.timeStamp - this.startTime;
@@ -88,47 +89,94 @@
         this.element.find('.view').removeClass('disabled');
         this.state = 'ready';
       } else {
-        this.setStatusMessage('not recording.');
+        this.softError('not recording.');
       }
       return false;
     },
-    pb: function(){
+    playback: function(){
       this.setStatusMessage('playing back...');
-      puts('pb');
+      puts('playback');
       this.state = 'playback';
       this.runAnimation();
       return false;
+    },
+    runAnimation: function(){
+      if (!this.recordings || !this.recordings.length) {
+        return this.softError("no recordings to play back.");
+      }
+      if (!this.targetEl) {
+        return softError("no target element defined for playback!");
+      }
+      this.sleepOffset = 0;
+      this.lastAnimationFrame = this.recordings.length - 1;
+      this.runAnimationFrame(0);
+      return null;
+    },
+    unnormalize : function(x,y){
+      if (!this.unnormalizer) {
+        var offset = this.targetEl.offset();
+        this.unnormalizer = [Math.round(offset.left), Math.round(offset.top)];
+      }
+      return new Point(this.unnormalizer[0]+x, this.unnormalizer[1]+y);
+    },
+    runAnimationFrame: function(idx){
+      var frame = this.recordings[idx];
+      var pt = this.unnormalize(frame[1],frame[2]);
+      var sleepFor =  frame[3] - this.sleepOffset;
+      this.sleepOffset = frame[3];
+      var mockMouseEvent = {
+        pageX : pt[0],
+        pageY : pt[1],
+        target : this.targetEl[0]
+      };
+      var self = this;
+      setTimeout(function(){
+        puts("playback" + frame[0]);
+        self.targetEl.trigger(frame[0],[mockMouseEvent]);
+        if (idx < self.lastAnimationFrame) {
+          self.runAnimationFrame(idx+1);
+        }
+      }, sleepFor);
+    },
+    softError: function(msg){
+      this.setStatusMessage(msg);
+      return null;
     },
     setStatusMessage: function(msg){
       this.statusEl.html(msg);
     },
     view: function(){
       if (!this.recordings || this.recordings.size==0) {
-        this.setStatusMessage('no recordings to view');
+        this.softError('no recordings to view');
       } else {
         this.setStatusMessage('viewing...');
       }
       return false;
     },
     normalizeMouseEventPoint: function(e){
+      if (!this.normalizer) {
+        this.normalizer = this.canvasEl.offset();
+      }
       var x,y;
       x = Math.round(e.pageX - this.normalizer.left);
       y = Math.round(e.pageY - this.normalizer.top);
       return new Point(x,y);
     },
-    mouseCapture: function(e){
-      puts("got mc");
+    mousedown: function(e,e2){
+      if(e2) e=e2;
+      puts("md! E1 and E2"); E1 = e; E2 = e2;
       var pt;
       if (this.canvasEl[0] == e.target) {
-        this.md = true;
-        this.normalizer = this.canvasEl.offset();
+        puts("target yes");
+        this.md = true; // mouse dragging
         pt = this.normalizeMouseEventPoint(e);
         switch(this.state) {
           case 'ready':
+          case 'playback':
             this.goTransientDot(pt, this.transHot);
             break;
           case 'recording':
-            this.recordMouseEvent(e,'_mouseCapture',pt);
+            this.recordMouseEvent(e,'mousedown',pt);
             this.goTransientDot(pt, this.recHot);
             break;
         }
@@ -136,29 +184,33 @@
       }
       return false;
     },
-    mouseMove: function(e){
-      puts("got mm");
+    mousemove: function(e,e2){
+      if(e2) e=e2;
+      puts("mm with mme1 && mme2"); mme1 = e; mme2 = e2;
       var pt = this.normalizeMouseEventPoint(e);
       switch(this.state){
         case 'ready':
+        case 'playback':
           this.goTransientDot(pt, this.md ? this.transWarm : this.transCool);
           break;
         case 'recording':
-          this.recordMouseEvent(e,'_mouseMove',pt);
+          this.recordMouseEvent(e,'mousemove',pt);
           this.goTransientDot(pt, this.md ? this.recWarm : this.recCool);
           break;
       }
     },
-    mouseUp: function(e){
-      puts("got mu");
-      this.md = false;
+    mouseup: function(e,e2){
+      if(e2) e=e2;
+      puts("mu with mue1 && mue2"); mue1 = e; mue2 = e2;
+      this.md = false; // mouse dragging
       var pt = this.normalizeMouseEventPoint(e);
       switch(this.state){
         case 'ready':
+        case 'playback':
           this.goTransientDot(pt, this.transCool);
           break;
         case 'recording':
-          this.recordMouseEvent(e,'_mouseUp',pt);
+          this.recordMouseEvent(e,'mousemove',pt);
           this.goTransientDot(pt, this.recCool);
           break;
       }
@@ -177,22 +229,22 @@
     }
   };
 
-  $.widget("ui.hipe_mouse_recorder", $.extend({}, $.ui.mouse, {
+  $.widget("ui.hipe_mouse_recorder", {
     _init: function(){
-      this._mouseInit();
+      //this._mouseInit();
       el = $(this.element);
       cnt = new Controller(el, this, this.options.name);
       puts("C"); window.C = cnt;
       el.data('controller',cnt);
       $(window.document).keypress(function(e){cnt.keypress(e);});
+      el.bind('mousedown',function(e,e2){return cnt.mousedown(e,e2);});
+      el.bind('mousemove',function(e,e2){return cnt.mousemove(e,e2);});
+      el.bind('mouseup',function(e,e2){return cnt.mouseup(e,e2);});
       el.find('.rec').click(function(){return cnt.rec();});
       el.find('.stop').click(function(){return cnt.stop();});
-      el.find('.pb').click(function(){return cnt.pb();});
+      el.find('.pb').click(function(){return cnt.playback();});
       el.find('.view').click(function(){return cnt.view();});
       this._cnt = cnt;
-    },
-    _mouseCapture: function(e){return this._cnt.mouseCapture(e);},
-    _mouseMove: function(e){return this._cnt.mouseMove(e);},
-    _mouseUp: function(e){return this._cnt.mouseUp(e);}
-  }));
+    }
+  });
 })(jQuery);
