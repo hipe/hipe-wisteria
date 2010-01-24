@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <title>hipe arcs visual test</title>
+  <link rel="stylesheet" href="css.css" type="text/css" />
+  <script type="text/javascript" src="../../jquery/latest.js"></script>
+  <script type="text/javascript" src="../../jquery/latest/ui/jquery.ui.core.js"></script>
+  <script type="text/javascript" src="js.js"></script>
+  <script type="text/javascript">
+  $(function() {
+    $('#one-wrapper-to-rule-them-all').hipe_mouse_recorder();
+    });
+  </script>
+</head>
+  <body>
+    <div>
+      <h2>i am some header</h2>
+    </div>
+
+    <div id='one-wrapper-to-rule-them-all'>
+      <canvas id='the-one-canvas' width='500' height='309'>
+      </canvas>
+      <div class='controls'>
+        <a href='#' class='rec'><span class='unter'>r</span>ec</a>&nbsp;
+        <a href='#' class='stop'><span class='unter'>s</span>top</a>&nbsp;
+        <a href='#' class='pb'><span class='unter'>p</span>layback</a>
+        <a href='#' class='view disabled'><span class='unter'>v</span>iew</a>
+        <br/>
+        <span class='status'></span>
+      </div>
+    </div>
+    <div style='clear: both'></div>
+    <div>
+      <h2>i am some footer</h2>
+    </div>
+  </body>
+</html>

@@ -1,0 +1,29 @@
+#one-wrapper-to-rule-them-all{
+  position: relative;
+  float:left;
+  margin-left: 1em;
+  border: 1px solid pink;
+}
+#one-wrapper-to-rule-them-all canvas{
+  background-color: #333;
+}
+#one-wrapper-to-rule-them-all .controls{
+  border: 1px solid #777;
+  padding: 0 0.5em;
+  top: 0px;
+  right: 0px;
+  position: absolute;
+  font-family: courier;
+  font-size: smaller;
+  color: green;
+}
+#one-wrapper-to-rule-them-all .controls a{
+  text-decoration: none;
+  color: green;
+}
+#one-wrapper-to-rule-them-all .controls a.disabled{
+  color: #222;
+}
+#one-wrapper-to-rule-them-all .controls a .unter{
+  text-decoration: underline;
+}
