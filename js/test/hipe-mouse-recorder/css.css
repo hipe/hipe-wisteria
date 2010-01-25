@@ -7,7 +7,7 @@
 #one-wrapper-to-rule-them-all canvas{
   background-color: #333;
 }
-#one-wrapper-to-rule-them-all .controls{
+.hipe-mouse-recorder .controls{
   border: 1px solid #777;
   padding: 0 0.5em;
   top: 0px;
@@ -17,13 +17,13 @@
   font-size: smaller;
   color: green;
 }
-#one-wrapper-to-rule-them-all .controls a{
+.hipe-mouse-recorder .controls a{
   text-decoration: none;
   color: green;
 }
-#one-wrapper-to-rule-them-all .controls a.disabled{
+.hipe-mouse-recorder .controls a.disabled{
   color: #222;
 }
-#one-wrapper-to-rule-them-all .controls a .unter{
+.hipe-mouse-recorder .controls a .unter{
   text-decoration: underline;
 }
