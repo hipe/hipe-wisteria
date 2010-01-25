@@ -1,76 +1,54 @@
-#__header__{
-  height:250px;
-  margin:0 auto;
-  position:relative;
-  width:795px;
-  border: 1px solid pink;
-}
-#__footer__{
-  position: absolute;
-  background-color: pink;
-  top:810px;
-}
-
-
-/* we don't know if we need absolute positioning to normalize mouse clicks */
-#__absolute__tablet-wrapper-1{
-  position: absolute;
-  border: 1px solid red;
-  left: 10px;
-  top: 200px;
-}
-#relative-tablet-wrapper-1{
-  border: 1px solid orange;
-  position: relative;
-  float: left;
-}
-#width-registration-1{
-  position: absolute;
-  top: 0px;
-  left: 0px;
-}
-.terminal{
-  white-space: normal;
-  font-family: "Andale Mono", monospace;
-  font-size: 1.0em;
-}
-.font-metrics{
-  position: absolute;
-  top: 0px;
-  left: 0px;
-  z-index: 2;
-}
-.canvas-underlay{
-  position: absolute;
-  top: 0;
-  left: 0;
-  z-index: 4;
-  border: 1px solid pink;
-  color: black;
-}
-.the-backmost-background{
-  background-color: #282828;
-  z-index: 1;
-  width: 1000px;
-  height: 600px;
-}
-div.clear{
-  clear:both;
-}
 * {
   margin:0;
   padding:0;
 }
-
-/************* arc stuff ************/
-
-.arc-canvas { /*not necessarily a canvas, maybe a div*/
+body {
+  font-family: "Helvetica Neue",Arial,sans-serif;
+}
+#__header__{
+  border: 1px solid pink;
+  height:100px;
+  margin:0 auto;
+  /*position:relative;*/
+  width:795px;
+}
+#__footer__{
+  background-color: pink;
+  height: 500px;
+  margin: 0 auto;
+  /*position: relative;*/
+  /*top:810px;*/
+  width: 795px;
+}
+.arrows-home {
+  background-color: #282828;
   color: green;
-  z-index: 3;
+  font-family: "Andale Mono", monospace;
+  height: 400px;
+  margin: 0 auto;
+  position: relative;
+  white-space: pre;
+  width: 800px;
+  cursor: default;
+  -moz-user-select: none;
+}
+.arrows-home .dots{
+  left: 0px;
+  position: absolute;
+  top: 0px;
+  color: gray;
+  z-index: 1;
+}
+.arrows-home .font-metrics{
+  left: 0px;
+  top: 0px;
+  position: absolute;
+  z-index: 2;
+}
+.arrows-home .path-layer{
   position: absolute;
   top: 0px;
   left: 0px;
-  white-space: pre;
-  font-family: "Andale Mono", monospace;
-  font-size: 1.0em;
+  z-index: 3;
+  /*border: 1px solid pink;*/
 }

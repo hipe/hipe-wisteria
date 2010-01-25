@@ -9,22 +9,20 @@
   <script type="text/javascript" src="../../../hipe-arrows.js"></script>
   <script type="text/javascript">
     $(function() {
-      var grid;
-      var puts = window.console.log;
-      var fm = $('#font-metrics-1').hipe_canvas_font_metrics();
-      if (grid=fm.data('dimensions')) {
-        $('#canvas-1').hipe_arrows({grid: grid});
-        $('#canvas-1').hipe_canvas_dots({grid: grid});
+      var fms = $('.arrows-home .font-metrics').hipe_canvas_font_metrics();
+      if (fms.length) {
+        window.fm = fms.data('widget');
+        var grid = fms.data('dimensions');
+        var dots = $('.arrows-home').hipe_canvas_dots({grid: grid});
+        window.dots = dots.data('canvas_dots');
+        var arrows = $('.arrows-home').hipe_arrows_path_controller({grid: grid});
+        window.arrows = arrows.data('widget');
       }
-      //$("#square-1").resizable_table({ grid: [gridw, gridh] });  /* must come before draggable.  why? */
-      //$("#square-1").draggable({ grid: [gridw,gridh], containment: 'parent'});
-      //$("#resizable-1").resizable( );
-      //
-
-
-
-
     });
+
+
+
+
   </script>
 </head>
   <body>
@@ -32,14 +30,8 @@
       <h2>i am some header</h2>
     </div>
 
-
-    <div id='__absolute__tablet-wrapper-1'>
-      <div id='relative-tablet-wrapper-1'>
-        <div class='the-backmost-background'></div>
-        <canvas class='canvas-underlay' id='canvas-1' width='1000' height='600'></canvas>
-        <pre class='terminal font-metrics' id='font-metrics-1'>i am font metrics</pre>
-        <div class='clear'></div>
-       </div>
+    <div class='arrows-home'>
+      <div class='font-metrics'>i am font metrics</div>
     </div>
 
     <div id='__footer__'>
