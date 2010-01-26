@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <title>hipe color theory</title>
+  <link rel="stylesheet" href="all.css" type="text/css" />
+  <script type="text/javascript" src="../../../jquery/latest.js"></script>
+  <script type="text/javascript" src="../../../jquery/latest/ui/jquery.ui.core.js"></script>
+  <script type="text/javascript" src="../../../hipe-color-theory.js"></script>
+  <script type="text/javascript">
+    $(function() {
+      var thing = $('.thing').hipe_color_theory();
+    });
+  </script>
+  <style type='text/css'>
+    * {
+      margin: 0;
+      padding: 0;
+    }
+    body {
+      font-family: "Helvetica Neue",helvetica,sans-serif;
+      margin-left: 1em;
+    }
+    .thing {
+      border: 3px solid gray;
+      width: 300px;
+      height: 150px;
+      position: relative;
+      float:left;
+      margin: 1em 1.5em;
+    }
+    .thing .controls{
+      position: absolute;
+      bottom: 0px;
+      width: 100%;
+      border: 1px solid gray;
+      text-align: center;
+    }
+    .thing .controls .in{
+      border: 1px solid #444;
+      display: inline-block;
+    }
+    .thing .controls button{
+      font-size: 9px;
+      margin: -0.2em;
+    }
+    .thing .controls input.rgb{
+      width: 2em;
+    }
+    .thing .controls .desc{
+      font-size: 10px;
+    }
+  </style>
+</head>
+  <body>
+    <div style='width: 100%'>
+      <div style='margin-left: auto; margin-right: auto; width: 30%'>
+        <!-- <blink>hipe color theory</blink> -->
+        <h3>hipe color theory?</h3>
+      </div>
+    </div>
+    <div style='clear:both'></div>
+    <div class='thing'>
+      <div class='controls'><div class='in'>
+        <button class='rand'>rand</button>
+        <button class='brighten'>brighten</button>
+        <button class='darken'>darken</button>
+        <button class='flourescenten'>flourescenten</button>
+        <button class='hotten'>hotten</button>
+        <button class='coolen'>coolen</button>
+        <span class='desc'>bright: <span class='isBright'></span></span>
+        <span class='desc'>dark: <span class='isDark'></span></span>
+        <input name='r' class='rgb'></input>
+        <input name='g' class='rgb'></input>
+        <input name='b' class='rgb'></input>
+      </div></div>
+    </div>
+    <div class='thing'>
+      <div class='controls'><div class='in'>
+        <button class='rand'>rand</button>
+        <button class='brighten'>brighten</button>
+        <button class='darken'>darken</button>
+        <button class='flourescenten'>flourescenten</button>
+        <button class='hotten'>hotten</button>
+        <button class='coolen'>coolen</button>
+        <span class='desc'>bright: <span class='isBright'></span></span>
+        <span class='desc'>dark: <span class='isDark'></span></span>
+        <input name='r' class='rgb'></input>
+        <input name='g' class='rgb'></input>
+        <input name='b' class='rgb'></input>
+      </div></div>
+    </div>
+    <div class='thing'>
+      <div class='controls'><div class='in'>
+        <button class='rand'>rand</button>
+        <button class='brighten'>brighten</button>
+        <button class='darken'>darken</button>
+        <button class='flourescenten'>flourescenten</button>
+        <button class='hotten'>hotten</button>
+        <button class='coolen'>coolen</button>
+        <span class='desc'>bright: <span class='isBright'></span></span>
+        <span class='desc'>dark: <span class='isDark'></span></span>
+        <input name='r' class='rgb'></input>
+        <input name='g' class='rgb'></input>
+        <input name='b' class='rgb'></input>
+      </div></div>
+    </div>
+  </body>
+</html>
