@@ -1,3 +1,12 @@
+/**
+* hipe-color-theory 0.0.0pre
+*
+* copyright (c) 2010 mark meves
+* dual licensed under the MIT (MIT-LICENSE.txt)
+* and GPL (GPL-LICENSE.txt) licenses.
+*
+*/
+
 (function(x) {
   var $ = x;
 
@@ -20,54 +29,162 @@
     return target;
   };
 
-  /** @constructor */
-  var Color = function(r,g,b){
-    var me = new Array(3);
-    extend(me,Color.prototype);
-    me.setRgb(r,g,b);
+
+  aliases = function (proto,dict){
+    var i;
+    for(i in dict){
+      proto[i] = proto[dict[i]];
+    }
+  };
+
+  var fatal = function(msg){
+    throw new Error("hipe color theory "+msg);
+  };
+
+  var Vector = function(){
+    var me = (arguments.length == 1 && 'object'==typeof(arguments[0])) ?
+      arguments[0] : arguments;
+    for (var i=me.length-1; i>=0; i--){
+      if ('number'!==typeof(me[i])) {
+        return fatal("vector had non-numeric value at "+i);
+      }
+    }
+    extend(me, Vector.prototype);
     return me;
   };
-  Color.prototype = {
-    defaultIncrement: 40,
-    brightnessLevel: 0,
-    inspectColor: function(){
-      return '['+this.join(',')+']';
-    },
-    isValid: function(){
-      for(var i=2; i>=0; i--){
-        var x = this[i];
-        if ('number'!=typeof(x) || x<0 || x>Color.max) return false;
+  Vector.fill = function(size,value){
+    arr = new Array(size);
+    for(var i=arr.length-1;i>=0;i--){
+      arr[i] = value;
+    }
+    return extend(arr,Vector.prototype);
+  };
+  Vector.prototype = {
+    prototypeFunction: Vector,
+    isVector: true,
+    // just as a favor to all the children, you can pass your prototype
+    // as the only argument.
+    vectorCopy: function(){
+      var proto = arguments.length ? arguments[0] : Vector.prototype;
+      var copy = new Array(this.length);
+      for (var i=this.length-1; i>=0; i--) {
+        copy[i] = this[i];
       }
-      return true;
+      return extend(copy, proto);
     },
-    setRgb: function(){
-      this.innate = null;
-      this.brightnessLevel = 0;
-      var ok=true;
-      var args=arguments;
-      if (args.length==1 && 'object'===typeof(args[0])) args=args[0];
-      if (undefined===args.length || args.length!=3)
-        return this.setRgb(null,null,null);
-      for(var i=2; i>=0; i--){
-        if ('number'!==typeof(args[i])) {
-          if ((/^\d+$/).exec(args[i])) {
-            args[i] = parseInt(args[i],10);
-          } else {
-            args[i] = null;
-          }
+    copy: function(){
+      return this.vectorCopy(this.prototypeFunction.prototype);
+    },
+    /**
+    * given a list of zero or more other vectors, change the value
+    * of this vector at each axis by iterating over the given list of
+    * vectors and for each other vector (and within that each axis),
+    * change the value of this vector at the axis by calling function f()
+    * and passing it a pair of values: the first value will be the value
+    * of this vector at this axis and the other value will be of that other
+    * vector at that same axis.  This will raise an exception if each other
+    * vector doesn't have the same number of axis as this one.
+    * For example, with three vectors v1, v2 and v3, you could
+    * add them all up: (altering the original v1:)
+    * v1._mapBang([v2,v3],function(a,b){return a+b;})
+    *
+    * @return this vector (chaining)
+    *
+    * (the name is inspired by Ruby's Enumerable#map! method)
+    *
+    * as a special case, if you pass a single number for 'mixed',
+    * it will be as if you passed an array one element in length
+    * with one vector with as many axis as this one, and each value
+    * is that number.
+    *
+    * as another special case, if you pass one vector.. etc.
+    */
+    _mapBang : function(mixed,f) {
+      if ('number'==typeof(mixed) )
+        arr = [Vector.fill(this.length, mixed)];
+      else if (mixed.isVector)
+        arr = [mixed];
+      else
+        arr = mixed;
+      for(var i=arr.length-1;i>=0;i--){
+        var v = arr[i];
+        if (v.length != this.length)
+          return fatal("vectors must be of same length");
+        for (var j=this.length-1; j>=0; j--) {
+          this[j] = f(this[j],v[j]);
         }
-        if (null!==args[i]) {
-          if (args[i]<0 || args[i] > Color.max){
-            args[i] = null;
-          }
-        }
-        this[i] = args[i];
       }
       return this;
     },
-    css: function(){
-      return this.isValid() ? ('rgb('+this.join(',')+')') : null;
+    _max: function(f){
+      if (this.length==0) return null;
+      var maxVal = this[0];
+      var maxIdx = 0;
+      for(var i=this.length-1;i>=2;i--){
+        if (f(this[i],maxVal)) {
+          maxIdx = i;
+          maxVal = this[i];
+        }
+      }
+      return maxIdx;
     },
+    vectorEquals: function(v){
+      if (v.length !== this.length) return fatal(
+        "won't compare vectors with different lengths"
+      );
+      for (var i=this.length-1; i>=0; i--) {
+        if (this[i]!=v[i]) return false;
+      }
+      return true;
+    },
+    vectorMinusEquals: function(mixed){
+      return this._mapBang(mixed,function(a,b){return a-b;});
+    },
+    vectorPlusEquals: function(mixed){
+      return this._mapBang(mixed,function(a,b){return a+b;});
+    },
+    vectorDividedByEquals: function(mixed){
+      return this._mapBang(mixed,function(a,b){return a/b;});
+    },
+    vectorTimesEquals: function(mixed){
+      return this._mapBang(mixed,function(a,b){return a * b;});
+    },
+    ceil: function(){
+      return this._mapBang(this, function(a){return Math.ceil(a);});
+    },
+    floor: function(){
+      return this._mapBang(this, function(a){return Math.floor(a);});
+    },
+    inspect: function(){ return this.vectorInspect(); },
+    vectorInspect: function(){'['+this.join(',')+']';},
+    maxIdx: function(){return this._max(function(a,b){return a>b;});},
+    minIdx: function(){return this._max(function(a,b){return a<b;});},
+    max:function(){ return this[this.maxIdx()]; },
+    min:function(){ return this[this.minIdx()]; }
+  };
+  aliases(Vector.prototype, {
+    is              : 'vectorEquals',
+    plusEquals      : 'vectorPlusEquals',
+    minusEquals     : 'vectorMinusEquals',
+    timesEquals     : 'vectorTimesEquals',
+    dividedByEquals : 'vectorDividedByEquals'
+  });
+
+  /** @constructor */
+  var Color = function(r,g,b){
+    var me = new Vector(Color.bounds(r), Color.bounds(g), Color.bounds(b));
+    return extend(me, Color.prototype);
+  };
+  Color.delta = function(c1,c2){ return c2.copy().minusEquals([c1]); };
+  Color.prototype = extend({}, Vector.prototype, {
+    prototypeFunction: Color,
+    isColor: true,
+    setRgb: function(){
+      return this._mapBang([arguments],function(a,b){
+        return Color.bounds(b);
+      });
+    },
+    css: function(){return 'rgb('+this.join(',')+')';},
     randomize:function(){
       return this.setRgb(
         Math.floor(Math.random() * Color.steps),
@@ -75,101 +192,43 @@
         Math.floor(Math.random() * Color.steps)
       );
     },
-    isBright: function(){
-      if (!this.isValid()) return null;
-      return Color.delta(this, Color.white).maxValue() < 128;
-    },
-    isDark: function(){
-      return ! this.isBright();
-    },
-    /**
-    * arbitrary algorithm: find the most significant axis,
-    * find the distance from it to white, add the fixed increment amount
-    * to it, and add a proportional amount to the other two.
-    */
+    isBright: function(){return Color.delta(this, Color.white).max()<128;},
+    isDark: function(){return ! this.isBright();},
     brighten: function(){
-      var levelDelta = ('number'===typeof(arguments[0])) ?
-        arguments[0] : 1;
-      var increment = this.defaultIncrement; // @todo
-      if (!this.innate) {
-        this.innate = [this[0],this[1],this[2]];
-      }
-      var innate = this.innate;
-      if (levelDelta<0){
-        var cd2 = Color.delta(this,Color.black);
-        if (0 == cd2.minValue()) return false;
-      }
-      var d = Color.delta(this, Color.white);
-      var sigIdx = d.maxIndex();
-      var sigDelta = d.maxValue();
-      if (sigDelta == 0 && levelDelta > 0) return false;
-      var nextBrightnessLvl = (this.brightnessLevel + levelDelta);
-      var useIncrement = nextBrightnessLvl * increment;
-      var newSigValue = Color.boundarize(innate[sigIdx]+useIncrement);
-      this[sigIdx] = newSigValue;
-      var usedIncrement = newSigValue - innate[sigIdx];
-      var proportion = (sigDelta==0 ? 1.0 : (usedIncrement / sigDelta));
-      for (var i=0;i<=2;i++){
-        if (i==sigIdx) continue;
-        var inc = Math.floor(d[i] * proportion);
-        var newValue = Color.boundarize(this[i] + inc);
-        this[i] = newValue;
-      }
-      this.brightnessLevel = nextBrightnessLvl;
-      return true;
+      var delta = Color.white.copy().minusEquals(this);
+      if (0==delta.max()) return this;
+      return this.plusEquals(delta.dividedByEquals(2).ceil());
     },
     darken: function(){
-      var levelDelta = ('number'===typeof(arguments[0])) ?
-        (-1 * arguments[0]) : -1;
-      return this.brighten(-1);
+      var delta = Color.black.copy().minusEquals(this);
+      if (0==delta.min()) return this;
+      return this.plusEquals(delta.dividedByEquals(2).floor());
     }
-  };
+  });
   Color.min = 0;
   Color.max = 255;
   Color.steps = 256;
+  Color.bounds = function(mixed){
+    switch(typeof(mixed)) {
+      case 'string':
+        if (/^\d+$/.exec(mixed)) mixed = parseInt(mixed,10);
+        else return fatal("non numeric value for color axis: "+mixed);
+      case 'number':
+        if (mixed < Color.min || mixed > Color.max)
+          return fatal ("color axis out of bounds: "+mixed);
+        break;
+      default:
+        return fatal(
+          "invalid type for color axis: "+typeof(mixed)+"("+mixed+")");
+    }
+    return mixed;
+  };
+  Color.transformations =
+    ['rand','brighten','darken','hotten','coolen','flourescenten'];
+    // primariten, secondariten, earthen, mudden
+
   Color.white = new Color(Color.max,Color.max,Color.max);
   Color.black = new Color(Color.min,Color.min,Color.min);
-  Color.boundarize = function(value){
-    if ('number'!==typeof(value)) return null;
-    return value<Color.min ? Color.min : value>Color.max ? Color.max : value;
-  };
-
-
-  /** @constructor */
-  ColorDelta = function(){
-    var me=arguments;
-    extend(me,ColorDelta.prototype);
-    return me;
-  };
-  ColorDelta.prototype = {
-    maxIndex: function(){
-      var max = -1 * Color.steps, idx = null;
-      for(var i=this.length-1;i>=0;i--) {
-        if (this[i]>max) {max = this[i]; idx = i;}}
-      return idx;
-    },
-    minIndex: function(){
-      var min = Color.steps, idx = null;
-      for(var i=this.length-1;i>=0;i--) {
-        if (this[i]<min) {min = this[i]; idx = i;}}
-      return idx;
-    },
-    minValue: function(){
-      var idx = this.minIndex();
-      return (null===idx) ? null : this[idx];
-    },
-    maxValue: function(){
-      var idx = this.maxIndex();
-      return (null===idx) ? null : this[idx];
-    }
-  };
-
-  Color.delta = function(c0,c1) {
-    return new ColorDelta(c1[0]-c0[0],c1[1]-c0[1],c1[2]-c0[2]);
-  };
-
-
-
 
 
   /** @constructor */
@@ -177,27 +236,26 @@
     this.targetEl = el;
     this.widget = jqWidget;
     this.options = options;
-    this.color = new Color(null,null,null);
+    this.color = Color.white.copy();
   };
   ColorController.prototype = {
     fatal: function(msg){
       throw new Error("color controller "+msg);
     },
     setRgb:function(r,g,b){
-      this.color.setRgb(r,g,b);
+      try {
+        this.color.setRgb(r,g,b);
+      } catch (e) {
+        _e = e;
+        this.setStatusMessage('check _e');
+      }
       this._colorUpdated();
     },
     _colorUpdated: function(){
       this.displayRgb(this.color[0],this.color[1],this.color[2]);
-      if (this.color.isValid()) {
-        var css = this.color.css();
-        this.targetEl.css('background-color',css);
-        this._updateDescriptions();
-      } else {
-        puts("_color not valid: "+this.color.inspectColor()+
-          ". making it white"); _color = this.color;
-        this.targetEl.css('background-color','rgb(255,255,255)');
-      }
+      var css = this.color.css();
+      this.targetEl.css('background-color',css);
+      this._updateDescriptions();
       return null;
     },
     _updateDescriptions: function(){
@@ -212,19 +270,21 @@
       return this._colorUpdated();
     },
     brighten: function(){
-      if (this.color.brighten()) {
-        return this._colorUpdated();
-      } else {
+      if (this.color.is(Color.white)) {
         this.setStatusMessage("already as bright as can be");
         return null;
+      } else {
+        this.color.brighten();
+        return this._colorUpdated();
       }
     },
     darken: function(){
-      if (this.color.darken()) {
-        return this._colorUpdated();
-      } else {
+      if (this.color.is(Color.black)) {
         this.setStatusMessage("already as dark as can be");
         return null;
+      } else {
+        this.color.darken();
+        return this._colorUpdated();
       }
     },
     hotten: function(){
@@ -251,14 +311,10 @@
       self.element.data('hipe_color_theory',self);
       var cnt = new ColorController(self.element, self, self.options);
       self.controller = cnt;
-      var them = ['rand','brighten','darken',
-        'hotten','coolen','flourescenten'];
+      var them = Color.transformations;
       for(var i=them.length-1; i>=0; i--){
         var func = them[i];
         buttons = this.element.find('.controls .'+func);
-        if (!cnt[func]) {
-          return this.fatal("please implement "+func+" in your controller");
-        }
         (function(func2){
           buttons.bind('click',function(e){
             puts('do '+func2);
