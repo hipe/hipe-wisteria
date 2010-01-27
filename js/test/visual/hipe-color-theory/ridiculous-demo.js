@@ -12,7 +12,7 @@
 */
 (function($) {
 
-  var debug = false;
+  var debug = true;
 
   var puts = function(msg){
     msg = 'ctr '+msg;
@@ -71,6 +71,13 @@
     }
   };
 
+  /**
+  * given two matrices with elements treated as true-ish and false-ish,
+  * return an object with a 'left' and 'right' property, the left
+  * being a matrix of elements that are true-ish before and not after, and
+  * the right being those that are true-ish after but not before.
+  * no center is returned for now.
+  */
   Matrix.binaryDiff = function(before,after){
     var left = new Matrix();
     var right = new Matrix();
@@ -339,6 +346,9 @@
           var myDim = this.dimensions();
           var dim = this._localizeAndSqueezeDimensions(rect,myDim);
           if (dim===false){
+            // @todo we need to make this smarter.  when a subrect
+            // goes on or comes off the viewable area of this
+            // thing is a major event
             rect.element.hide();
           } else {
             rect.element.css({
@@ -358,8 +368,17 @@
       $.extend(o,Dimensions.prototype);
       return o;
     },
-    color: function(){
+    cssColorString: function(){
       return this.element.css('background-color');
+    },
+    newMyColorObject: function(){
+      var myStr = this.cssColorString();
+      if ('transparent'===myStr) {
+        return false;
+      } else {
+        var lib = this.element.data('hipe_color_theory').library();
+        return lib.Color.fromCssRgbString(myStr);
+      }
     },
     _setRects: function(rects){
       if(debug)puts('#'+this.widgetId()+" got "+rects.length+" rects.");
@@ -405,11 +424,11 @@
             left: dim.left,
             width: dim.width,
             height: dim.height,
-            color: rect.color(),
             origId: origId,
             myRectId: myRectId,
             cssId: 'sub-rect-'+myRectId+'-in-'+this.widgetId()+'-from-'+origId
           };
+          this._doColorStuff(rect,entry);
           this.__subRects[id] = entry;
           this.__subRectIds.push(id);
           newSubRects.push(entry);
@@ -436,13 +455,36 @@
       }
       this.__subRectIds = newList;
     },
+    _getBlendedColorObject: function(cssSourceColorStr){
+      var lib = this.element.data('hipe_color_theory').library();
+      var c1 = lib.Color.fromCssRgbString(cssSourceColorStr);
+      var c2 = this.newMyColorObject();
+      if (!c1) {
+        if (!c2) return false;  // both transparent, e.g.
+        return c2;
+      } else {
+        if (!c2) return c1;
+        c2.blendIn(c1);
+        return c2;
+      }
+    },
+    _doColorStuff: function(rect,entry){
+      entry.sourceColorCssString = rect.cssColorString();
+      var color = this._getBlendedColorObject(entry.sourceColorCssString);
+      if (color) {
+        entry.blendedColorCssString = color.cssRgbString();
+        entry.blendedColorNoteString = color.cssHexString();
+      } else {
+        entry.blendedColorCssString = 'transparent';
+        entry.blendedColorNoteString = 'transparent';
+      }
+    },
     _addDivsForNewSubRects: function(rects){
       for(var i=0;i<rects.length; i++){
         var entry = rects[i];
-        var div = $('<div></div>');
+        var div = $('<div class="subrect"><div class="note"></div></div>');
         div.css({
-          backgroundColor: entry.color,
-          border: '1px solid grey',
+          backgroundColor: entry.blendedColorCssString,
           position: 'absolute',
           zIndex: -1 // @todo
         });
@@ -460,6 +502,7 @@
         this.element.append(div);
         if(debug)puts("ADDED SUBRECT DIV "+entry.cssId);
         var divAgain = $('#'+entry.cssId);
+        divAgain.find('.note').html(entry.blendedColorNoteString);
         entry['element'] = divAgain;
       }
       return;

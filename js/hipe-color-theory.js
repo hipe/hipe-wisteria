@@ -42,12 +42,16 @@
   };
 
   var Vector = function(){
-    var me = (arguments.length == 1 && 'object'==typeof(arguments[0])) ?
+    // we used to use 'arguments' "as" the starting object but it
+    // didn't have Array functions like join()
+    var args = ('object'===typeof(arguments[0]) && arguments.length===1) ?
       arguments[0] : arguments;
-    for (var i=me.length-1; i>=0; i--){
-      if ('number'!==typeof(me[i])) {
+    me = new Array(args.length);
+    for (var i=args.length-1; i>=0; i--) {
+      if ('number'!==typeof(args[i])) {
         return fatal("vector had non-numeric value at "+i);
       }
+      me[i] = args[i];
     }
     extend(me, Vector.prototype);
     return me;
@@ -57,7 +61,7 @@
     for(var i=arr.length-1;i>=0;i--){
       arr[i] = value;
     }
-    return extend(arr,Vector.prototype);
+    return extend(arr,this.prototype);
   };
   Vector.prototype = {
     prototypeFunction: Vector,
@@ -101,7 +105,7 @@
     */
     _mapBang : function(mixed,f) {
       if ('number'==typeof(mixed) )
-        arr = [Vector.fill(this.length, mixed)];
+        arr = [this.prototypeFunction.fill(this.length, mixed)];
       else if (mixed.isVector)
         arr = [mixed];
       else
@@ -116,6 +120,24 @@
       }
       return this;
     },
+    /**
+    * return a new vector with each value of it being the result of
+    * a call to function f() with each corresponding this value passed to it.
+    */
+    _map: function(f){
+      var result = this.prototypeFunction.fill(this.length, null);
+      for(var i=this.length-1;i>=0;i--){
+        result[i] = f(this[i]);
+      }
+      return result;
+    },
+    /**
+    * @return index of the axis with the 'max' value,
+    * uses function f(a,b) to test what max means, where it
+    * should return true-ish if +a+ is considered greater than +b+
+    * (so we can use this to implement min() too.)
+    * @return null for zero-length vectors
+    */
     _max: function(f){
       if (this.length==0) return null;
       var maxVal = this[0];
@@ -149,10 +171,10 @@
     vectorTimesEquals: function(mixed){
       return this._mapBang(mixed,function(a,b){return a * b;});
     },
-    ceil: function(){
+    ceilEquals: function(){
       return this._mapBang(this, function(a){return Math.ceil(a);});
     },
-    floor: function(){
+    floorEquals: function(){
       return this._mapBang(this, function(a){return Math.floor(a);});
     },
     inspect: function(){ return this.vectorInspect(); },
@@ -175,16 +197,31 @@
     var me = new Vector(Color.bounds(r), Color.bounds(g), Color.bounds(b));
     return extend(me, Color.prototype);
   };
+  Color.fill = Vector.fill; // need a better way? @see
   Color.delta = function(c1,c2){ return c2.copy().minusEquals([c1]); };
+  Color.cssRegex = /^rgb\((\d+), *(\d+), *(\d+)\)$/;
+  Color.fromCssRgbString = function(str){
+    var md;
+    if (null===(md=Color.cssRegex.exec(str))) return false;
+    return new Color(md[1],md[2],md[3]);
+  };
   Color.prototype = extend({}, Vector.prototype, {
     prototypeFunction: Color,
     isColor: true,
     setRgb: function(){
+      if (arguments.length!==3) return fatal('need 3 arguments');
       return this._mapBang([arguments],function(a,b){
         return Color.bounds(b);
       });
     },
-    css: function(){return 'rgb('+this.join(',')+')';},
+    cssRgbString: function(){return 'rgb('+this.join(',')+')';},
+    cssHexString: function(){
+      return '#'+this._map(function(v){
+        var s = Number(v).toString(16);
+        if (s.length===1) s = '0'+s;
+        return s;
+      }).join('');
+    },
     randomize:function(){
       return this.setRgb(
         Math.floor(Math.random() * Color.steps),
@@ -192,17 +229,34 @@
         Math.floor(Math.random() * Color.steps)
       );
     },
-    isBright: function(){return Color.delta(this, Color.white).max()<128;},
+    isBright: function(){
+      return Color.delta(this, Color.white).max()<(Color.steps/2);},
     isDark: function(){return ! this.isBright();},
     brighten: function(){
       var delta = Color.white.copy().minusEquals(this);
       if (0==delta.max()) return this;
-      return this.plusEquals(delta.dividedByEquals(2).ceil());
+      return this.plusEquals(delta.dividedByEquals(2).ceilEquals());
     },
     darken: function(){
       var delta = Color.black.copy().minusEquals(this);
       if (0==delta.min()) return this;
-      return this.plusEquals(delta.dividedByEquals(2).floor());
+      return this.plusEquals(delta.dividedByEquals(2).floorEquals());
+    },
+    /**
+    * move this color towards the other color.
+    * an optional second parameter is a float between 0 and 1 inclusive
+    * that indicates what ratio of the delta to blend in. default 0.5.
+    * (1.0 would result in changing this color to the other color completely,
+    * zero will result in no change.)
+    * throws fatal error if value is out of range. uses default if it's null.
+    */
+    blendIn: function(colorObj){
+      if (-1 != [undefined,null].indexOf(arguments[1])) arguments[1] = 0.5;
+      var ratio = arguments[1];
+      if ('number'!=typeof(ratio)||0>ratio||1.0<ratio)
+        return fatal("ratio out of bounds or wrong type: "+ratio);
+      d = Color.delta(this, colorObj).timesEquals(ratio).floorEquals();
+      return this.plusEquals(d);
     }
   });
   Color.min = 0;
@@ -224,6 +278,7 @@
     return mixed;
   };
   Color.transformations =
+    // a lot of these aren't defined yet
     ['rand','brighten','darken','hotten','coolen','flourescenten'];
     // primariten, secondariten, earthen, mudden
 
@@ -252,7 +307,7 @@
     },
     _colorUpdated: function(){
       this.displayRgb(this.color[0],this.color[1],this.color[2]);
-      var css = this.color.css();
+      var css = this.color.cssRgbString();
       this.targetEl.css('background-color',css);
       this._updateDescriptions();
       return null;
@@ -305,9 +360,10 @@
     fatal: function(msg){
       throw new Error("color controller "+msg);
     },
+    library: function(){ return { Color: Color, Vector: Vector }; },
+    controller: function(){ return this.controller; },
     _init: function(){
       var self = this;
-      self.element.data('hipe_color_theory',self);
       var cnt = new ColorController(self.element, self, self.options);
       self.controller = cnt;
       var them = Color.transformations;
