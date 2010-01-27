@@ -1,3 +1,4 @@
 tmp.*
 *-nogit
 nogit
+.sass-cache

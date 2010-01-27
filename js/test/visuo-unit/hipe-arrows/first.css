@@ -1,0 +1,75 @@
+
+ol#qunit-tests {
+  float: right;
+  width: 30%; }
+
+p#qunit-testresult {
+  clear: both;
+  -moz-border-radius-topleft: 8px; }
+
+h2#qunit-userAgent {
+  -moz-border-radius-bottomleft: 8px; }
+
+div.mr .recording-canvas{
+  left: 0px;
+  position: absolute;
+  top: 0px;
+  z-index: 1;}
+
+div.mr .recording-controls{
+  padding: 0 0.5em;
+  top: 0px;
+  right: 0px;
+  position: absolute;
+  font-family: courier;
+  font-size: 9px;
+  letter-spacing:-0.11em;
+  color: green;}
+  div.mr .recording-controls a{
+    text-decoration: none;
+    color: green;
+  }
+  div.mr .recording-controls a.disabled{
+    color: #222;
+  }
+  div.mr .recording-controls a .unter{
+    text-decoration: underline;
+  }
+
+div.mr .vert{
+  letter-spacing: 0;
+}
+
+
+div#montage {
+  -moz-border-radius: 8px;
+  background-color: #999;
+  float: left;
+  width: 70%;
+  height: 300px;
+  position: relative;}
+  div#montage .av, div#montage .cv, div#montage .ah, div#montage .ch {
+    background-color: #bbb;
+    position: absolute;
+    -moz-border-radius: 6px;}
+  div#montage .av {
+    height:162px;
+    left:10px;
+    top:10px;
+    width:36px;}
+  div#montage .cv {
+    height:116px;
+    left:57px;
+    top:56px;
+    width:37px;}
+  div#montage .ah {
+    height:35px;
+    left:55px;
+    top:10px;
+    width:169px;}
+  div#montage .ch {
+    height:34px;
+    left:104px;
+    top:57px;
+    width:120px;}
+
