@@ -246,8 +246,7 @@
       try {
         this.color.setRgb(r,g,b);
       } catch (e) {
-        _e = e;
-        this.setStatusMessage('check _e');
+        this.setStatusMessage(e.message);
       }
       this._colorUpdated();
     },

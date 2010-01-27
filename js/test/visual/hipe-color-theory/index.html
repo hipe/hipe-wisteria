@@ -6,9 +6,20 @@
   <script type="text/javascript" src="../../../jquery/latest.js"></script>
   <script type="text/javascript" src="../../../jquery/latest/ui/jquery.ui.core.js"></script>
   <script type="text/javascript" src="../../../hipe-color-theory.js"></script>
+
+  <script type="text/javascript" src="../../../jquery/latest/ui/jquery.ui.draggable.js"></script>
+  <script type="text/javascript" src="ridiculous-demo.js"></script>
+
   <script type="text/javascript">
     $(function() {
-      var thing = $('.thing').hipe_color_theory();
+      var context = { grid:[100,100] };
+      $('.thing').hipe_color_theory();
+      $('.thing').hipe_color_theory_ridiculous_demo({context: context});
+      $('.thing').draggable({
+        grid       : [1,1],
+        stack      : { group: '.thing', min: 50},
+        ridiculous : true
+      });
     });
   </script>
   <style type='text/css'>
