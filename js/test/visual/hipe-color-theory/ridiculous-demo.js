@@ -13,6 +13,8 @@
 (function($) {
 
   var debug = true;
+  var debugZoneage = false;
+  var debugDrag = false;
 
   var puts = function(msg){
     msg = 'ctr '+msg;
@@ -126,17 +128,22 @@
     }
   };
 
+  /**
+  * collision detection manager?
+  * @see comments at zoneageChange()
+  */
   var Context = function(){};
   Context.prototype = {
     isContext : true,
     initContext: function(){
-      if(debug)puts('_ct xt initted'); _ct=this;
-      this.map = {};
+      if (debug) puts('_ct xt initted'); _ct=this;
+      this.entries = {}; // keys are ids
       this.cube = new Matrix();
+      this.listenerMap = {}; // id keys to arrays of ids
     },
     cubeInspect: function(){
       var num=0;
-      for(var x in this.map){ num++; }
+      for(var x in this.entries){ num++; }
       var lines = [];
       for(var i=0;i<this.cube.length;i++){
         if (!this.cube[i]) continue;
@@ -159,16 +166,20 @@
       return lines.join("\n");
     },
     _removeIdFromCubeAt: function(id,matrix){
-      //puts('remove '+id+" from cube at \n"+matrix.matrixInspect());
+      if (debugZoneage)
+        puts('remove '+id+" from cube at \n"+matrix.matrixInspect());
       return this._addOrRemoveIdFromCubeAt(false, id, matrix);
     },
     _addIdToCubeAt: function(id,matrix){
-      //puts('remove '+id+" from cube at \n"+matrix.matrixInspect());
+      if (debugZoneage)
+        puts('remove '+id+" from cube at \n"+matrix.matrixInspect());
       return this._addOrRemoveIdFromCubeAt(true, id, matrix);
     },
     _addOrRemoveIdFromCubeAt: function(doAdd, id, matrix){
-      //puts("cube before "+(doAdd?"add:":"remove:"));
-      //puts("\n"+this.cubeInspect());
+      if (debugZoneage) {
+        puts("cube before "+(doAdd?"add:":"remove:"));
+        puts("\n"+this.cubeInspect());
+      }
       var cube = this.cube;
       for(var i=matrix.length-1; i>=0; i--){
         if (undefined===matrix[i]) continue;
@@ -196,35 +207,37 @@
       return null;
     },
     _addNewZoneage: function(entry){
-      if(debug)puts("_addNewZoneage for #"+entry.id+
-        " "+entry.zoneage.zoneDim.dimensionsInspect());
-      if (this.map[entry.id])
+      if (debug) puts("#"+entry.id+" reports new zoneage: "+
+        entry.zoneage.zoneDim.dimensionsInspect());
+      if (this.entries[entry.id])
         return fatal("already have zoneage on record for #"+entry.id);
-      this.map[entry.id] = entry;
+      this.entries[entry.id] = entry;
       this._addIdToCubeAt(entry.id,entry.zoneage);
       return [];
     },
     _alterExistingZoneage: function(entry){
-      if (!this.map[entry.id]) {
+      if (!this.entries[entry.id]) {
         return fatal("no zoneage on record for "+entry.id);
       }
-      var prevEntry = this.map[entry.id];
+      var prevEntry = this.entries[entry.id];
       var prevZoneage = prevEntry.zoneage;
       var newZoneage = entry.zoneage;
-      if(debug)puts("_alterExistingZoneage for #"+entry.id+
-        ": "+prevZoneage.zoneDim.dimensionsInspect()+" => "+
+      if (debug) puts("#"+entry.id+" alters existing zoneage: "+
+        prevZoneage.zoneDim.dimensionsInspect()+" => "+
         newZoneage.zoneDim.dimensionsInspect());
       var diff = Matrix.binaryDiff(prevZoneage,newZoneage);
-      //puts("left diff: \n"+diff.left.matrixInspect());
-      //puts("right diff: \n"+diff.right.matrixInspect());
+      if (debugZoneage) {
+        puts("left diff: \n"+diff.left.matrixInspect());
+        puts("right diff: \n"+diff.right.matrixInspect());
+      }
       this._removeIdFromCubeAt(entry.id,diff.left);
       if (diff.right.length){
         this._addIdToCubeAt(entry.id,diff.right);
       }
-      this.map[entry.id] = entry; // update with new zoneage
+      this.entries[entry.id] = entry; // update with new zoneage
       return null;
     },
-    _reportCollisions: function(matrix,id){
+    _reportCollisionsAndNoteListeners: function(matrix,id){
       var collisions = {};
       for(var i=matrix.length-1; i>=0;i--){
         if (undefined===matrix[i]) continue;
@@ -237,25 +250,73 @@
           }
         }
       }
-      var dims = [];
+      var dimensionals = [];
+      var listenerList = [];
       for(i in collisions){
-        dims.push(this.map[i].dimensional);
+        listenerList.push(i);
+        dimensionals.push(this.entries[i].dimensional);
       }
-      return dims;
+      this.listenerMap[id] = listenerList;
+      return dimensionals;
     },
-    zoneageChange:function(el,zoneage){
+
+    /**
+    * This thing manages a dependency network in two dimensional space
+    * of 'dimensionals', and reports on collisions or near collisions
+    * of dimensionals in that space.  A 'dimensional' that reports its
+    * 'zoneage' to this thing must implement:
+    *
+    *    - widgetId(),
+    *   [- dimensions()
+    *    - cssColorString()]
+    *
+    * (the last two aren't a requirement of this thing but of other
+    * dimensionals in this specific project @todo).
+    *
+    * A 'zoneage' is a two dimensional matrix of false-ish or true-ish
+    * that reports the 'squares' (zones) this dimensional is taking up in this
+    * coordinate space. (this coordinate space is typically blockier than
+    * the screen coordinate space, e.g. 100x100 pixes per square ('zone'),
+    * and maybe less than a dozen 'zones' on the screen.)
+    *
+    * When a dimensional reports its zoneageChange() with this thing,
+    * it will get back a list of 'dimensionals' it is occupying
+    * any of the same zone squares as it. (that is, close to or touching or
+    * overlapping, etc.)
+    *
+    * Whenever anybody sends startMovingNotify(),
+    * all other dimensionals that are close or touching this one will
+    * get notified with the widget id of the moving dimensional.
+    */
+    zoneageChange:function(dimensional,zoneage){
       var entry = {
-        dimensional: el,
+        dimensional: dimensional,
         zoneage:     zoneage,
-        id:          el.widgetId()
+        id:          dimensional.widgetId()
       };
-      if(this.map[entry.id]) {
+      if(this.entries[entry.id]) {
         this._alterExistingZoneage(entry);
       } else {
         this._addNewZoneage(entry);
       }
-      //puts("cube after zonechange:\n"+this.cubeInspect());
-      return this._reportCollisions(entry.zoneage,entry.id);
+      if (debugZoneage) puts("cube after zonechange:\n"+this.cubeInspect());
+      return this._reportCollisionsAndNoteListeners(entry.zoneage,entry.id);
+    },
+    startMovingNotify: function(movingThingId){
+      this._notifyCozoners(movingThingId,'cozonerMovingNotify');
+    },
+    stopMovingNotify: function(movingThingId){
+      this._notifyCozoners(movingThingId,'cozonerStopMovingNotify');
+    },
+    _notifyCozoners: function(movingThingId,callbackName){
+      // once a thing has started or stopped moving
+      // we need to tell all of its co-zoners about it.
+      var list = this.listenerMap[movingThingId];
+      for (var i=list.length-1;i>=0;i--){
+        var listenerId = list[i];
+        var listeningDimensional = this.entries[listenerId].dimensional;
+        listeningDimensional[callbackName](movingThingId);
+      }
     }
   };
 
@@ -311,7 +372,7 @@
         ctxt.initContext();
       }
       this.__subRectIds = []; // crazy name as a reminder to keep it parallel
-      this.__subRects = {};   // with this one
+      this.__subRectEntries = {};   // with this one
       var newRects = ctxt.zoneageChange(this,this._buildNewZoneage());
       this._setRects(newRects);
     },
@@ -322,43 +383,86 @@
       this.lastZoneage = Zoneage.fromRect(this.lastDim,zoneDim,this.grid);
       return this.lastZoneage;
     },
-    drag: function() {
+    startDrag: function() {
+      /*
+      * this is sort of a hack because whatever div is on top is the only one
+      * that needs any internal animation.  we need to tell our listeners that
+      * whatever subrects they have of ours are now invalid.  When they start
+      * their drag, they will need to, like, get the new data somehow.
+      */
+      this.drag(true); // @todo this might be too expensive, causes a blip
+      this.options.context.startMovingNotify(this.widgetId());
+    },
+    stopDrag: function() {
+      this.options.context.stopMovingNotify(this.widgetId());
+    },
+    cozonerStopMovingNotify: function(id){
+      this.cozonerMovingNotify(id); // i guess
+    },
+    cozonerMovingNotify: function(id) {
+      var entries = this.__subRectEntries;
+      // we won't have a record of this dimensional if it moved on
+      // top of us at its own volition. only if we moved on top of it.
+      if (entries[id]) {
+        if (debug) puts (this._debugId()+" KNOWS that #"+id+" is moving.");
+        this._handleHidingASubrect(entries[id]);
+      } else {
+        if(debug) puts (this._debugId()+" DOESN'T CARE that #"+id+
+          " is moving.");
+      }
+    },
+    _debugId: function(){ return '#'+this.widgetId(); },
+    drag: function(isStart) {
       var screenDim = this.dimensions();
       var zoneDim = Zoneage.dimensions(screenDim, this.grid);
-      //puts("drag: "+screenDim.dimensionsInspect()+" "+
-      // zoneDim.dimensionsInspect());
+      if (debugDrag) puts("drag: "+screenDim.dimensionsInspect()+" "+
+        zoneDim.dimensionsInspect());
       var prevZoneDim = this.lastZoneage.zoneDim;
-      if (! zoneDim.dimensionsEqual(prevZoneDim)) {
-        if (debug)
-          puts("zoneage change detectected in drag():"+
-          "prev: "+prevZoneDim.dimensionsInspect()+" curr: "+
-          zoneDim.dimensionsInspect());
+      if (isStart || ! zoneDim.dimensionsEqual(prevZoneDim)) {
         var z = this._buildNewZoneage(zoneDim);
         var rects = this.options.context.zoneageChange(this,z);
         this._setRects(rects);
       }
       if (0===this.__subRectIds.length){
-        if(debug)puts("no sub rects to check in this drag");
+        if (debugDrag) puts("#"+this.widgetId()+" has no sub rects "
+          +"to check in this drag");
       } else {
         for(var i=0; i<this.__subRectIds.length; i++){
           var id = this.__subRectIds[i];
-          var rect = this.__subRects[id];
+          var entry = this.__subRectEntries[id];
           var myDim = this.dimensions();
-          var dim = this._localizeAndSqueezeDimensions(rect,myDim);
-          if (dim===false){
-            // @todo we need to make this smarter.  when a subrect
-            // goes on or comes off the viewable area of this
-            // thing is a major event
-            rect.element.hide();
+          var dim = this._localizeAndSqueezeDimensions(entry,myDim);
+          if (dim===false) {
+            if (entry.overlapExists) {
+              this._handleHidingASubrect(entry);
+            }
           } else {
-            rect.element.css({
-              display: 'block',
-              top:dim.top, left: dim.left,
-              width: dim.width, height: dim.height
-            });
+            if (!entry.overlapExists) {
+              this._handleShowingASubrect(entry,dim);
+            } else {
+              // the thing is already visible, alter its coordinates
+              entry.element.css({
+                top:dim.top, left: dim.left,
+                width: dim.width, height: dim.height
+              });
+            }
           }
         }
       }
+    },
+    // this is a state change.  the subrect is still in our zoneage, but out
+    // of our 'viewing portal' (our screen dimensions)
+    _handleHidingASubrect: function(entry){
+      // and for that, we do this:
+      entry.overlapExists = false;
+      entry.element.hide();
+    },
+    _handleShowingASubrect: function(entry,dim){
+      entry.overlapExists = true;
+      entry.element.css({
+        top:dim.top, left: dim.left,
+        width: dim.width, height: dim.height, display: 'block'
+      });
     },
     dimensions: function() {
       var o = this.element.offset();
@@ -381,7 +485,8 @@
       }
     },
     _setRects: function(rects){
-      if(debug)puts('#'+this.widgetId()+" got "+rects.length+" rects.");
+      if (debug) puts('#'+this.widgetId()+" got "+rects.length+" rects"+
+      " in response.");
       var id, i;
       var idsPresent = [];
       var idsAdded = [];
@@ -402,50 +507,55 @@
           idsRemoved.push(id);
         }
       }
-      if (0===idsAdded.length && 0===idsRemoved.length){
-        if(debug)puts("nothing added or removed in this zone change.");
+      if (0===idsAdded.length && 0===idsRemoved.length) {
+        if (debug) puts("#"+this.widgetId()+
+        " had nothing added or removed in this zone change.");
         return null;
       }
       if (idsRemoved.length) {
         this._doSomethingWithRemovedSubrects(idsRemoved);
       }
       if (idsAdded.length) {
-        var newSubRects = [];
-        idsAdded.sort();
-        for(i=0;i<idsAdded.length; i++){
-          id = idsAdded[i];
-          rect = rectsById[id];
-          var dim = rect.dimensions();
-          var origId = rect.widgetId();
-          var myRectId = widgetId(); // make a new id!
-          var entry = {
-            id : id,
-            top: dim.top,
-            left: dim.left,
-            width: dim.width,
-            height: dim.height,
-            origId: origId,
-            myRectId: myRectId,
-            cssId: 'sub-rect-'+myRectId+'-in-'+this.widgetId()+'-from-'+origId
-          };
-          this._doColorStuff(rect,entry);
-          this.__subRects[id] = entry;
-          this.__subRectIds.push(id);
-          newSubRects.push(entry);
-        }
-        this._addDivsForNewSubRects(newSubRects);
+        this._createEntriesAndAddSubrectDivs(rectsById, idsAdded);
       }
       return null;
+    },
+    _createEntriesAndAddSubrectDivs: function(rectsById, idsAdded){
+      var newSubRects = new Array(idsAdded.length);
+      idsAdded.sort();
+      for(i=0;i<idsAdded.length; i++){
+        id = idsAdded[i];
+        rect = rectsById[id];
+        var dim = rect.dimensions();
+        var origId = rect.widgetId();
+        var myRectId = widgetId(); // make a new id!
+        var entry = {
+          id : id,
+          top: dim.top,
+          left: dim.left,
+          width: dim.width,
+          height: dim.height,
+          origId: origId,
+          myRectId: myRectId,
+          cssId: 'sub-rect-in-'+this.widgetId()+'-from-'+origId+
+            '-called-'+myRectId
+        };
+        this._doColorStuff(rect,entry);
+        this.__subRectEntries[id] = entry;
+        this.__subRectIds.push(id);
+        newSubRects[i] = entry;
+      }
+      this._addDivsForNewSubRects(newSubRects);
     },
     _doSomethingWithRemovedSubrects: function(ids){
       for(var i=ids.length-1;i>=0;i--){
         var id = ids[i];
-        var entry = this.__subRects[id];
+        var entry = this.__subRectEntries[id];
         var idx = this.__subRectIds.indexOf(id);
         this.__subRectIds[idx] = false;
         entry.element.remove();
-        if(debug)puts("REMOVED #"+entry.cssId);
-        this.__subRects[id] = false;
+        if (debug) puts("REMOVED #"+entry.cssId);
+        this.__subRectEntries[id] = false;
       }
       var newList = [];
       for (i=this.__subRectIds.length-1;i>=0;i--){
@@ -479,9 +589,10 @@
         entry.blendedColorNoteString = 'transparent';
       }
     },
-    _addDivsForNewSubRects: function(rects){
-      for(var i=0;i<rects.length; i++){
-        var entry = rects[i];
+    _addDivsForNewSubRects: function(entries){
+      var myDim = this.dimensions();
+      for(var i=0;i<entries.length; i++){
+        var entry = entries[i];
         var div = $('<div class="subrect"><div class="note"></div></div>');
         div.css({
           backgroundColor: entry.blendedColorCssString,
@@ -489,21 +600,23 @@
           zIndex: -1 // @todo
         });
         div.attr('id',entry.cssId);
-        var myDim = this.dimensions();
         var dim = this._localizeAndSqueezeDimensions(entry,myDim);
         if (false===dim){
+          entry.overlapExists = false;
           div.css({
             width: 0, height: 0, top: 0, left: 0, display: 'none'
           });
         } else {
+          entry.overlapExists = true;
           div.css({ top: dim.top, left: dim.left, width: dim.width,
             height: dim.height});
         }
         this.element.append(div);
-        if(debug)puts("ADDED SUBRECT DIV "+entry.cssId);
+        if (debug) puts('#'+this.widgetId()+" ADDED SUBRECT DIV "+
+          entry.cssId);
         var divAgain = $('#'+entry.cssId);
         divAgain.find('.note').html(entry.blendedColorNoteString);
-        entry['element'] = divAgain;
+        entry.element = divAgain;
       }
       return;
     },
@@ -529,8 +642,14 @@
   });
 
   $.ui.plugin.add("draggable", "ridiculous", {
+    start: function(event,ui){
+      $(this).data("hipe_color_theory_ridiculous_demo").startDrag();
+    },
     drag: function(event, ui) {
-      $(this).data("hipe_color_theory_ridiculous_demo").drag();
+      $(this).data("hipe_color_theory_ridiculous_demo").drag(false);
+    },
+    stop: function(event,ui){
+      $(this).data("hipe_color_theory_ridiculous_demo").stopDrag();
     }
   });
 
