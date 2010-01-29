@@ -95,16 +95,17 @@
     },
     plusEquals: function(vector){
       return this.each(function(val,idx){ this[idx]+=vector[idx];});
+    },
+    timesEquals: function(vector){
+      return this.each(function(val,idx){ this[idx]*=vector[idx];});
     }
   };
 
-  var Camera = function(){
-    var args = [0,0,0,300];
-    for (var i=arguments.length; i>=0; i--){
-      args[i] = arguments[i];
-    }
-    var me = new Vector(args.slice(0,3));
-    me.focalLength = args[3];
+  var Camera = function(pos, focalLength){
+    if (!pos) pos = [0,0,0];
+    if (!focalLength) focalLength = 450;
+    var me = new Vector(pos);
+    me.focalLength = focalLength;
     return extend(me, Camera.prototype);
   };
   Camera.prototype = {
@@ -117,9 +118,12 @@
 
 
 
-
   var AbstractWireframe = function(length){
-    return extend(new Vector(new Array(length)), AbstractWireframe.prototype);
+    var me =
+      extend(new Vector(new Array(length)), AbstractWireframe.prototype);
+    me._beforeRun = [];
+    me._afterRun = [];
+    return me;
   };
   AbstractWireframe.prototype = {
     isAbstractWireframe: true,
@@ -130,6 +134,14 @@
       this.screenPoints.each(function(value,idx){
         this[idx] = wireframe.makeEmptyScreenPoint(wireframe[idx], idx);
       });
+    },
+    beforeRun: function(f){ this._beforeRun.push(f); },
+    afterRun: function(f){ this._afterRun.push(f); },
+    beforeRunNotify: function(){
+      list(this._beforeRun).each(function(f){ f(); });
+    },
+    afterRunNotify: function(){
+      list(this._afterRun).each(function(f){ f(); });
     },
     setAxisRotationAndRotationDelta: function(a,b){
       this.currentAxisRotation = a;
@@ -160,7 +172,7 @@
         var scaleFactor = camera.focalLength/(camera.focalLength + yz);
         var x = zx*scaleFactor;
         var y = zy*scaleFactor;
-        var z = -yz;
+        //var z = -yz;
 
         var screenPt = screenPoints[idx];
         screenPt.setPointAndRender(x,y,scaleFactor);
@@ -178,17 +190,25 @@
   SceneController.prototype = {
     isSceneController: true,
     initSceneController: function(){
+      var opts = this.options;
       this.state = 'ready';
       this._setTargetMsecPerFrame();
       this.axisRotationPrototype = new Vector([0.0,0.0,0.0]);
       this.currentRotationDeltaPrototype = new Vector(
-        this.options.initialRotationDelta);
-      this.camera = new Camera(0,0,0,this.options.cameraFocalLength);
+        opts.initialRotationDelta);
+      // camera position is not used in this engine currently
+      if (!opts.cameraPosition) opts.cameraPosition = [0,0,0];
+      if (!opts.cameraFocalLength) opts.cameraFocalLength = 450;
+      this.camera = new Camera(
+        opts.cameraPosition,
+        opts.cameraFocalLength
+      );
       this.fipsListeners = null;
       this.updateFipsEvery = 2000;
     },
     run: function(){
       if (this.fipsListeners) this.timeOfLastFipsUpdate = 0;
+      this.each(function(wireframe){wireframe.beforeRunNotify();});
       this.state = 'running';
       this._renderThisFrameAndTheNextFrame();
     },
@@ -246,6 +266,8 @@
           function(){me._renderThisFrameAndTheNextFrame();},
           sleepFor
         );
+      } else {
+        this.each(function(wireframe){ wireframe.afterRunNotify(); });
       }
     }
   };
@@ -255,6 +277,10 @@
 
   //****************** start css-specific code ********************
 
+  /**
+  * holds a two dimensional point-vector (not really, actually)
+  * and a jQuery handle on the element (li)
+  */
   var CssScreenPoint = function(el){
     var me = new Vector([null,null]);
     me.element = el;
@@ -272,7 +298,6 @@
     }
   };
 
-
   var CssWireframe = function(ul){
     ul = $(ul);
     var me, li = ul.children();
@@ -282,7 +307,6 @@
     return me;
   };
   CssWireframe.prototype = {
-    fatal: fatal,
     makeEmptyScreenPoint: function(innatePt, idx){
       var rslt = new CssScreenPoint(innatePt.element);
       return rslt;
@@ -292,35 +316,71 @@
     this.wireframe = wireframe;
     this.parseIn(ul, li);
   };
-  CssWireframe.Parse.prototype = {
+
+  /**
+  * to make life both a little easier and a little more complicated
+  * want to assert that all elements in some kind of group
+  * (either all li's, or one ul) have top and left positions
+  * that are each and all expressed using any unit but the same unit
+  * (em, picas, pixels, cubits, etc.)  That is, each and every top
+  * and left of each element parsed with this thing must use the same
+  * unit as all the others parsed with this thing. For now it is constructed
+  * with one element from that group, just to get the unit to use for the
+  * assertions.
+  */
+  CssWireframe.Parse.UnitParser = function(el){
+    var p = this.topAndLeft(el);
+    this.assertUnit = p.left.unit;
+    return this;
+  };
+  CssWireframe.Parse.UnitParser.prototype = {
     unitRe : /^(-?\d(?:\.d+)?)([a-z]+)$/,
+    left: function(el){ return this._(el,'left'); },
+    top: function(el){ return this._(el,'top'); },
+    topAndLeft: function(el){
+      var t = this._(el,'top');
+      var l = this._(el,'left');
+      if (t.unit !== l.unit) {
+        return fatal('top and left units must be the same, had "'+
+          t.orig+'" and "'+l.orig+'"');
+      }
+      return {left: l, top: t};
+    },
+    _:function(el,which){
+      var str = el.css(which);
+      var match = this.unitRe.exec(str);
+      if (!match) return fatal('failed to parse '+which+': '+str);
+      var rslt = {
+        orig: match[0],
+        unit: match[2],
+        units: parseFloat(match[1])
+      };
+      if (this.assertUnit && rslt.unit !== this.assertUnit) {
+        return fatal('ne "'+this.assertUnit+'" had "'+rslt.unit+'"'+
+          " ("+rslt.orig+")");
+      }
+      return rslt;
+    }
+  };
+
+  /** a lot of boring annoying code goes into trying to implement our
+  * "represent models with css" bs.
+  */
+  CssWireframe.Parse.prototype = {
     intRe: /^-?\d+$/, // parseInt is too lenient
     parseIn:function(ul, li){
       this.idx = li.length - 1;
       if (this.idx===-1) return;
       this.front(ul, li);
       this.back(ul, li);
-    },
-    back: function(ul,li){
-      var idx = this.idx, norm = this.normalizingVector;
-      while(-1<idx){
-        var el = $(li[idx]);
-        var newPt = new Vector([
-          norm.left.relativeScreenPx(el),
-          norm.top.relativeScreenPx(el),
-          norm.depth.relativeScreenPx(el)
-        ]);
-        newPt.element = el;
-        this.wireframe[idx] = newPt;
-        idx--;
-      }
+      this.lookForCenterOfRotationAndTranslate(ul, li);
     },
     front: function(ul,li){
       var parentOffset = ul.offset();
       var el = $(li[this.idx]);
       var frontZindex = this.zIndex(el);
       var zIndex = frontZindex;
-      this.assertUnit = this.leftAndTop(el).left.unit;
+      this.unitParser = new CssWireframe.Parse.UnitParser(el);
       var map = new Vector([new Vector([]), new Vector([])]);
       map[0].name = 'left'; map[1].name = 'top';
       map.left = map[0]; map.top = map[1];
@@ -328,7 +388,7 @@
         var o = el.offset();
         var relScreenX = o.left - parentOffset.left;
         var relScreenY = o.top - parentOffset.top;
-        var pos = this.leftAndTop(el);
+        var pos = this.unitParser.topAndLeft(el);
         map.left.push({units:pos.left.units, screen:relScreenX});
         map.top.push({units:pos.top.units, screen:relScreenY});
         var newPt = new Vector([relScreenX, relScreenY, zIndex]);
@@ -348,6 +408,57 @@
       }
       return null;
     },
+    back: function(ul,li){
+      var idx = this.idx, norm = this.normalizingVector;
+      while(-1<idx){
+        var el = $(li[idx]);
+        var newPt = new Vector([
+          norm.left.relativeScreenPx(el),
+          norm.top.relativeScreenPx(el),
+          norm.depth.relativeScreenPx(el)
+        ]);
+        newPt.element = el;
+        this.wireframe[idx] = newPt;
+        idx--;
+      }
+    },
+
+    lookForCenterOfRotationAndTranslate: function(ul,li){
+      var ctr = ul.find('li.center-of-rotation');
+      if (0===ctr.length) return null;
+      if (1!==ctr.length) return fatal('multiple centers?');
+      var idx = ctr.prevAll().length;
+      var pt = this.wireframe[idx];
+      // if this is too ugly we can do it in front() and back()
+      if (!pt || pt.element[0] !== ctr[0]) {
+        return fatal("something wrong with our logic for finding center.");
+      }
+      var relScreenPxCtrPoint = pt.copy();
+      var delta = relScreenPxCtrPoint.copy().timesEquals([-1,-1,-1]);
+      // translate all points by the delta from this ctr point
+      this.wireframe.each(function(pt,idx){
+        pt.plusEquals(delta);
+      });
+
+      // this is just dick-tarded: translate the parent element (ul)
+      // by the negative of the delta (that is, the original
+      // relative screen top and screen left) to offset the change we just
+      // made and for now assert that it is
+      // in px (but if we need to we can let it handle other units somehow)
+      // in practice the parent element is usually position: relative, 0px/0px
+
+      var p = new CssWireframe.Parse.UnitParser(ul);
+      var tl = p.topAndLeft(ul);
+      if (! 'px'==tl.left.unit ) return fatal('for now need px for ul');
+      var x = tl.left.units + relScreenPxCtrPoint[0];
+      var y = tl.top.units + relScreenPxCtrPoint[1];
+      var cssReq = {top: y+'px', left: x+'px'};
+      var cssOld = {top: tl.top.units+'px', left: tl.left.units+'px'};
+      this.wireframe.beforeRun(function(){ ul.css(cssReq); });
+      this.wireframe.afterRun(function(){ ul.css(cssOld); });
+      return null;
+    },
+
     /*
     * you have a list of x and y points in terms of css element units
     * (e.g 'em' or 'px') and you have a list of the their relative screen
@@ -377,7 +488,7 @@
         normalizer.offsettingAmount = minRec.screen;
         normalizer.axisName = axis.name;
         normalizer.relativeScreenPx = function(el){
-          var thisUnits = p[this.axisName](el).units;
+          var thisUnits = p.unitParser[this.axisName](el).units;
           var rslt = (thisUnits - this.offsettingUnits) *
             this.unitLength + this.offsettingAmount;
           return rslt;
@@ -398,31 +509,6 @@
       normalizingVector[2] = zIndexNormalizer;
       normalizingVector.depth = normalizingVector[2];
       return normalizingVector;
-    },
-    left: function(el){ return this.leftOrTop(el,'left'); },
-    top: function(el){ return this.leftOrTop(el,'top'); },
-    leftOrTop: function(el,which){
-      var str = el.css(which);
-      var md = this.unitRe.exec(str);
-      if (!md) return fatal("failed to parse out "+which+" from "+str);
-      var rslt = {unit:md[2], units:parseFloat(md[1])};
-      if (this.assertUnit && rslt.unit!==this.assertUnit){
-        return fatal("units must all be "+this.assertUnit+" not "+
-          rslt.unit);
-      }
-      return rslt;
-    },
-    leftAndTop:function(el){
-      var units = {};
-      var p = this;
-      list('top','left').each(function(which){
-        units[which] = p.leftOrTop(el,which);
-      });
-      if (units.left.unit !== units.top.unit) {
-        return fatal('units not the same: '+units.left.unit+
-          ' '+units.top.unit);
-      }
-      return units;
     },
     zIndex:function(el){
       var str = el.css('zIndex'), rslt;
@@ -446,9 +532,9 @@
     addFipsListenersIfThereAreAny: function(){
       var els = this.element.find('.fps .live-data');
       if (els.length) this.sceneController.addFipsListener(function(fpsData){
-        var s = 'actual fps: '+fpsData.actualFps.toFixed(2)+' '+
+        var s = 'actual fps: '+fpsData.actualFps.toFixed(1)+' '+
                 'capacity: '+fpsData.percentCapacity.toFixed(1)+"% "+
-                'potential fps: '+fpsData.potentialFps.toFixed(2);
+                'potential fps: '+fpsData.potentialFps.toFixed(1);
         els.html(s);
       });
     },

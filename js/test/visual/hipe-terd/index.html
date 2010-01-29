@@ -9,10 +9,10 @@
      //<![CDATA[
      $(document).ready(function() {
        $('.terd-scene').hipe_terd({
-         maxFps: 24,
-         initialRotationDelta: [-0.10, 0.01, 0.00],
+         maxFps: 18,
+         initialRotationDelta: [0.001, 0.10, 0.01],
          cameraFocalLength: 450,
-         startRunningAnimationRightAway: true
+         startRunningAnimationRightAway: 1
        });
       });
      //]]>
@@ -35,13 +35,15 @@
        width: 5em;
        position: relative;
        top: 2em;
+       height: 3.5em;
      }
      .terd-scene ul {
        list-style-type: none;
-       height: 4em;
        position: relative;
        border: 1px solid red;
        font-weight: bold;
+
+
      }
      .terd-scene ul li {
        position: absolute;
@@ -56,6 +58,9 @@
       opacity: 0.5;
       z-index: 1;
     }
+    .terd-scene ul li.center-of-rotation {
+      color: red;
+    }
     .terd-scene ul li.front {
       z-index: 2;
     }
@@ -68,29 +73,33 @@
 </head>
 <body>
   <div id="terd-scene-1" class='terd-scene'>
+
+
     <ul class='this-ul-is-actually-a-wireframe-model-of-a-three-dimensional-object'>
+      <li class= 'back'  style='left: 1em; top: 0em; '>&#x263A;</li>
+      <li class= 'back'  style='left: 2em; top: 0em; '>&#x263A;</li>
+      <li class= 'back'  style='left: 3em; top: 0em; '>&#x263A;</li>
       <li class= 'back'  style='left: 1em; top: 1em; '>&#x263A;</li>
-      <li class= 'back'  style='left: 2em; top: 1em; '>&#x263A;</li>
       <li class= 'back'  style='left: 3em; top: 1em; '>&#x263A;</li>
       <li class= 'back'  style='left: 1em; top: 2em; '>&#x263A;</li>
+      <li class= 'back'  style='left: 2em; top: 2em; '>&#x263A;</li>
       <li class= 'back'  style='left: 3em; top: 2em; '>&#x263A;</li>
-      <li class= 'back'  style='left: 1em; top: 3em; '>&#x263A;</li>
-      <li class= 'back'  style='left: 2em; top: 3em; '>&#x263A;</li>
-      <li class= 'back'  style='left: 3em; top: 3em; '>&#x263A;</li>
 
-      <li class='middle' style='left: 1em; top: 1em; '>&#x263A;</li>
-      <li class='middle' style='left: 3em; top: 1em; '>&#x263A;</li>
-      <li class='middle' style='left: 1em; top: 3em; '>&#x263A;</li>
-      <li class='middle' style='left: 3em; top: 3em; '>&#x263A;</li>
+      <li class='middle' style='left: 1em; top: 0em; '>&#x263A;</li>
+      <li class='middle' style='left: 3em; top: 0em; '>&#x263A;</li>
+      <li class='middle center-of-rotation' style='left: 2em; top: 1em; '>
+        &#x263A;</li>
+      <li class='middle' style='left: 1em; top: 2em; '>&#x263A;</li>
+      <li class='middle' style='left: 3em; top: 2em; '>&#x263A;</li>
 
+      <li class='front'  style='left: 1em; top: 0em; '>&#x263A;</li>
+      <li class='front'  style='left: 2em; top: 0em; '>&#x263A;</li>
+      <li class='front'  style='left: 3em; top: 0em; '>&#x263A;</li>
       <li class='front'  style='left: 1em; top: 1em; '>&#x263A;</li>
-      <li class='front'  style='left: 2em; top: 1em; '>&#x263A;</li>
       <li class='front'  style='left: 3em; top: 1em; '>&#x263A;</li>
       <li class='front'  style='left: 1em; top: 2em; '>&#x263A;</li>
+      <li class='front'  style='left: 2em; top: 2em; '>&#x263A;</li>
       <li class='front'  style='left: 3em; top: 2em; '>&#x263A;</li>
-      <li class='front'  style='left: 1em; top: 3em; '>&#x263A;</li>
-      <li class='front'  style='left: 2em; top: 3em; '>&#x263A;</li>
-      <li class='front'  style='left: 3em; top: 3em; '>&#x263A;</li>
     </ul>
 
     <div class='fps'><span class='live-data'>..</span>fps</div>
