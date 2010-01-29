@@ -8,7 +8,7 @@
 * (the same license as jquery: http://docs.jquery.com/License)
 *
 * At the core of this is some code from devirtuoso, without whom
-*   i would have had to spend many many more hours on this.
+*   i would have had to spend many many more hours on this
 *  www.devirtuoso.com
 *
 * Depends:
@@ -137,7 +137,6 @@
     },
     applyCurrentRotation: function(){
       this.currentAxisRotation.plusEquals(this.axisRotationDelta);
-      1==1;
     },
     render: function(camera) {
       // @todo unwrapping the calls to map
@@ -180,11 +179,28 @@
     isSceneController: true,
     initSceneController: function(){
       this.state = 'ready';
-      this.maxMsecPerFrame = 1000 / this.options.fps;
+      this._setTargetMsecPerFrame();
       this.axisRotationPrototype = new Vector([0.0,0.0,0.0]);
       this.currentRotationDeltaPrototype = new Vector(
         this.options.initialRotationDelta);
       this.camera = new Camera(0,0,0,this.options.cameraFocalLength);
+      this.fipsListeners = null;
+      this.updateFipsEvery = 2000;
+    },
+    run: function(){
+      if (this.fipsListeners) this.timeOfLastFipsUpdate = 0;
+      this.state = 'running';
+      this._renderThisFrameAndTheNextFrame();
+    },
+    stop: function(){
+      this.state = 'ready';
+    },
+    _setTargetMsecPerFrame: function(){
+      var arg = this.options.maxFps;
+      if ('number'!==typeof(arg) || arg <= 0 || arg > 60)
+        arg = 12;
+      this.targetFps = this.options.maxFps;
+      this.targetMsecPerFrame = 1000 / arg;
     },
     addWireframe: function(wireframe){
       wireframe.setAxisRotationAndRotationDelta(
@@ -193,32 +209,44 @@
       );
       this.push(wireframe);
     },
-    debuggingMessage: function(msg){
+    addFipsListener: function(f){
+      if (!this.fipsListeners) this.fipsListeners = [];
+      this.fipsListeners.push(f);
+    },
+    _debuggingMessage: function(msg){
       puts(msg);
     },
-    renderThisFrameAndTheNextFrame: function(){
+    _updateFipsListeners: function(now, overhead, sleepFor){
+      this.timeOfLastFipsUpdate = now;
+      var fipsData = {
+        potentialFps: 1000 / overhead,
+        actualFps: 1000 / (sleepFor + overhead),
+        targetFps: this.targetFps,
+        percentCapacity: 100 * (overhead / this.targetMsecPerFrame)
+      };
+      for (var i=this.fipsListeners.length-1; i>=0; i--){
+        this.fipsListeners[i](fipsData);
+      }
+    },
+    _renderThisFrameAndTheNextFrame: function(){
       var t1 = new Date().getTime();
-      this.each(function(wireframe,idx){
+      this.each(function(wireframe){
         wireframe.render(this.camera);
         wireframe.applyCurrentRotation();
       });
-      var t2 = new Date().getTime();
-      var durrr = t2-t1;
-      var sleepFor = Math.max(0, this.maxMsecPerFrame - durrr);
-      var me = this;
+      var t2 = (new Date().getTime());
+      var overhead =  t2 - t1;
+      var sleepFor = Math.max(0, this.targetMsecPerFrame - overhead);
+      if (this.fipsListeners &&
+          t2 - this.timeOfLastFipsUpdate > this.updateFipsEvery)
+            this._updateFipsListeners(t2, overhead, sleepFor);
       if (this.state == 'running') {
+        var me = this;
         setTimeout(
-          function(){me.renderThisFrameAndTheNextFrame();},
+          function(){me._renderThisFrameAndTheNextFrame();},
           sleepFor
         );
       }
-    },
-    run: function(){
-      this.state = 'running';
-      this.renderThisFrameAndTheNextFrame();
-    },
-    stop: function(){
-      this.state = 'ready';
     }
   };
 
@@ -265,8 +293,8 @@
     this.parseIn(ul, li);
   };
   CssWireframe.Parse.prototype = {
-    unitRe : /^(\d(?:\.d+)?)([a-z]+)$/,
-    intRe: /^\d+$/, // parseInt is too lenient
+    unitRe : /^(-?\d(?:\.d+)?)([a-z]+)$/,
+    intRe: /^-?\d+$/, // parseInt is too lenient
     parseIn:function(ul, li){
       this.idx = li.length - 1;
       if (this.idx===-1) return;
@@ -409,14 +437,28 @@
 
   $.widget('ui.hipe_terd',{
     _init: function(){
-      var sceneController = new SceneController(this.options);
+      this.sceneController = new SceneController(this.options);
+      this.addFipsListenersIfThereAreAny();
+      this.addWireframes();
+      if (this.options.startRunningAnimationRightAway)
+        this.sceneController.run();
+    },
+    addFipsListenersIfThereAreAny: function(){
+      var els = this.element.find('.fps .live-data');
+      if (els.length) this.sceneController.addFipsListener(function(fpsData){
+        var s = 'actual fps: '+fpsData.actualFps.toFixed(2)+' '+
+                'capacity: '+fpsData.percentCapacity.toFixed(1)+"% "+
+                'potential fps: '+fpsData.potentialFps.toFixed(2);
+        els.html(s);
+      });
+    },
+    addWireframes: function(){
+      var me = this;
       this.element.find(
       'ul.this-ul-is-actually-a-wireframe-model-of-a-three-dimensional-object'
       ).each(function(){
-        sceneController.addWireframe(new CssWireframe(this));
+        me.sceneController.addWireframe(new CssWireframe(this));
       });
-      this.element.data('scene_controller',sceneController);
-      sceneController.run();
     }
   });
 

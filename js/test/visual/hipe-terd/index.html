@@ -9,32 +9,39 @@
      //<![CDATA[
      $(document).ready(function() {
        $('.terd-scene').hipe_terd({
-         maxFps: 12,
-         initialRotationDelta: [-0.01, 0.01, 0.00],
-         cameraFocalLength: 300
+         maxFps: 24,
+         initialRotationDelta: [-0.10, 0.01, 0.00],
+         cameraFocalLength: 450,
+         startRunningAnimationRightAway: true
        });
       });
      //]]>
    </script>
    <style type="text/css" media="screen">
+     * {
+       padding: 0;
+       margin: 0;
+     }
      body{
        background-color: #111;
        color: #69c;
        font-family: Arial, "MS Trebuchet", sans-serif;
-       font-weight: bold;
-       font-size:2em;
      }
+
      #terd-scene-1{
-       width:100px;
-       height:100px;
+       border: 1px solid #69c;
        margin:0 auto;
-       top:100px;
+       font-size: 4em;
+       width: 5em;
        position: relative;
-       font-size: 2em;
+       top: 2em;
      }
      .terd-scene ul {
        list-style-type: none;
+       height: 4em;
        position: relative;
+       border: 1px solid red;
+       font-weight: bold;
      }
      .terd-scene ul li {
        position: absolute;
@@ -52,32 +59,42 @@
     .terd-scene ul li.front {
       z-index: 2;
     }
+    #terd-scene-1 .fps {
+      float: right;
+      font-size: 0.20em;
+    }
+
    </style>
 </head>
 <body>
   <div id="terd-scene-1" class='terd-scene'>
     <ul class='this-ul-is-actually-a-wireframe-model-of-a-three-dimensional-object'>
-      <li class= 'back'  style='top: 0em; left: 0em;'>&#x263A;</li>
-      <li class= 'back'  style='top: 0em; left: 1em;'>&#x263A;</li>
-      <li class= 'back'  style='top: 0em; left: 2em;'>&#x263A;</li>
-      <li class= 'back'  style='top: 1em; left: 0em;'>&#x263A;</li>
-      <li class= 'back'  style='top: 1em; left: 2em;'>&#x263A;</li>
-      <li class= 'back'  style='top: 2em; left: 0em;'>&#x263A;</li>
-      <li class= 'back'  style='top: 2em; left: 1em;'>&#x263A;</li>
-      <li class= 'back'  style='top: 2em; left: 2em;'>&#x263A;</li>
-      <li class='middle' style='top: 0em; left: 0em;'>&#x263A;</li>
-      <li class='middle' style='top: 0em; left: 2em;'>&#x263A;</li>
-      <li class='middle' style='top: 2em; left: 0em;'>&#x263A;</li>
-      <li class='middle' style='top: 2em; left: 2em;'>&#x263A;</li>
-      <li class='front'  style='top: 0em; left: 0em;'>&#x263A;</li>
-      <li class='front'  style='top: 0em; left: 1em;'>&#x263A;</li>
-      <li class='front'  style='top: 0em; left: 2em;'>&#x263A;</li>
-      <li class='front'  style='top: 1em; left: 0em;'>&#x263A;</li>
-      <li class='front'  style='top: 1em; left: 2em;'>&#x263A;</li>
-      <li class='front'  style='top: 2em; left: 0em;'>&#x263A;</li>
-      <li class='front'  style='top: 2em; left: 1em;'>&#x263A;</li>
-      <li class='front'  style='top: 2em; left: 2em;'>&#x263A;</li>
+      <li class= 'back'  style='left: 1em; top: 1em; '>&#x263A;</li>
+      <li class= 'back'  style='left: 2em; top: 1em; '>&#x263A;</li>
+      <li class= 'back'  style='left: 3em; top: 1em; '>&#x263A;</li>
+      <li class= 'back'  style='left: 1em; top: 2em; '>&#x263A;</li>
+      <li class= 'back'  style='left: 3em; top: 2em; '>&#x263A;</li>
+      <li class= 'back'  style='left: 1em; top: 3em; '>&#x263A;</li>
+      <li class= 'back'  style='left: 2em; top: 3em; '>&#x263A;</li>
+      <li class= 'back'  style='left: 3em; top: 3em; '>&#x263A;</li>
+
+      <li class='middle' style='left: 1em; top: 1em; '>&#x263A;</li>
+      <li class='middle' style='left: 3em; top: 1em; '>&#x263A;</li>
+      <li class='middle' style='left: 1em; top: 3em; '>&#x263A;</li>
+      <li class='middle' style='left: 3em; top: 3em; '>&#x263A;</li>
+
+      <li class='front'  style='left: 1em; top: 1em; '>&#x263A;</li>
+      <li class='front'  style='left: 2em; top: 1em; '>&#x263A;</li>
+      <li class='front'  style='left: 3em; top: 1em; '>&#x263A;</li>
+      <li class='front'  style='left: 1em; top: 2em; '>&#x263A;</li>
+      <li class='front'  style='left: 3em; top: 2em; '>&#x263A;</li>
+      <li class='front'  style='left: 1em; top: 3em; '>&#x263A;</li>
+      <li class='front'  style='left: 2em; top: 3em; '>&#x263A;</li>
+      <li class='front'  style='left: 3em; top: 3em; '>&#x263A;</li>
     </ul>
+
+    <div class='fps'><span class='live-data'>..</span>fps</div>
+
   </div>
 </body>
 </html>
