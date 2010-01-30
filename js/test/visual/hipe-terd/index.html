@@ -2,108 +2,129 @@
 <html lang="en">
 <head>
   <title>thank you devirtuoso</title>
-   <script type="text/javascript" src="../../../jquery/latest.js"></script>
-   <script type="text/javascript" src="../../../jquery/latest/ui/jquery.ui.core.js" ></script>
-   <script type="text/javascript" src="../../../hipe-terd.js"></script>
-   <script type="text/javascript">
-     //<![CDATA[
-     $(document).ready(function() {
-       $('.terd-scene').hipe_terd({
-         maxFps: 18,
-         initialRotationDelta: [0.001, 0.10, 0.01],
-         cameraFocalLength: 450,
-         startRunningAnimationRightAway: 1
-       });
+    <script type="text/javascript" src="../../../jquery/latest.js"></script>
+    <script type="text/javascript" src="../../../jquery/latest/ui/jquery.ui.core.js" ></script>
+    <script type="text/javascript" src="../../../hipe-terd.js"></script>
+    <script type="text/javascript">
+      //<![CDATA[
+      $(document).ready(function() {
+        $('.terd-scene').hipe_terd_scene({
+          maxFps: 6,
+          initialRotationDelta: [0.050, 0.000, 0.000],
+          cameraFocalLength: 450,
+          startRunningAnimationRightAway: 1
+        });
+
+        $('#bb-1').hipe_terd_object();
       });
      //]]>
    </script>
    <style type="text/css" media="screen">
-     * {
-       padding: 0;
-       margin: 0;
-     }
-     body{
-       background-color: #111;
-       color: #69c;
-       font-family: Arial, "MS Trebuchet", sans-serif;
-     }
-
-     #terd-scene-1{
-       border: 1px solid #69c;
-       margin:0 auto;
-       font-size: 4em;
-       width: 5em;
-       position: relative;
-       top: 2em;
-       height: 3.5em;
-     }
-     .terd-scene ul {
-       list-style-type: none;
-       position: relative;
-       border: 1px solid red;
-       font-weight: bold;
-
-
-     }
-     .terd-scene ul li {
-       position: absolute;
-     }
+    * {
+      padding: 0;
+      margin: 0;
+    }
+    body{
+      background-color: #111;
+      color: #69c;
+      font-family: Arial, "MS Trebuchet", sans-serif;
+    }
+    #terd-scene-1{
+      border: 1px solid #69c;
+      margin:0 auto;
+      font-size: 4em;
+      width: 5em;
+      position: relative;
+      top: 2em;
+      height: 3.5em;
+    }
+    .terd-scene .bounding-box {
+      border: 1px solid orange;
+      position: absolute;
+    }
+    #bb-1{
+      height: 3.5em;
+      width: 3em;
+      left: 1em;
+    }
+    .terd-scene ul {
+      list-style-type: none;
+      position: relative;
+      border: 1px solid red;
+      font-weight: bold;
+      width: 1em; /* this is cosmetic */
+    }
+    .terd-scene ul li {
+      position: absolute;
+    }
     .terd-scene ul li.back {
       font-size: 80%;
       opacity: 0.1;
       z-index: 0;
+      color: yellow;
     }
     .terd-scene ul li.middle {
       font-size: 90%;
       opacity: 0.5;
       z-index: 1;
+      color : green;
     }
     .terd-scene ul li.center-of-rotation {
       color: red;
     }
     .terd-scene ul li.front {
       z-index: 2;
+      color: #69c;
     }
-    #terd-scene-1 .fps {
+    #terd-scene-1 .listener {
       float: right;
       font-size: 0.20em;
     }
-
+    .terd-scene .bounding-box .state-listener {
+      position: absolute;
+      bottom: 0em;
+      right: 0em;
+    }
    </style>
 </head>
 <body>
   <div id="terd-scene-1" class='terd-scene'>
 
+    <div class='spinnable bounding-box' id='bb-1'>
+      <ul class='this-ul-is-actually-a-wireframe-model-of-a-three-dimensional-object'>
+        <li class= 'back'  style='left: 0em; top: 0em; '>&#x263A;</li>
+        <li class= 'back'  style='left: 1em; top: 0em; '>&#x263A;</li>
+        <li class= 'back'  style='left: 2em; top: 0em; '>&#x263A;</li>
+        <li class= 'back'  style='left: 0em; top: 1em; '>&#x263A;</li>
+        <li class= 'back'  style='left: 2em; top: 1em; '>&#x263A;</li>
+        <li class= 'back'  style='left: 0em; top: 2em; '>&#x263A;</li>
+        <li class= 'back'  style='left: 1em; top: 2em; '>&#x263A;</li>
+        <li class= 'back'  style='left: 2em; top: 2em; '>&#x263A;</li>
 
-    <ul class='this-ul-is-actually-a-wireframe-model-of-a-three-dimensional-object'>
-      <li class= 'back'  style='left: 1em; top: 0em; '>&#x263A;</li>
-      <li class= 'back'  style='left: 2em; top: 0em; '>&#x263A;</li>
-      <li class= 'back'  style='left: 3em; top: 0em; '>&#x263A;</li>
-      <li class= 'back'  style='left: 1em; top: 1em; '>&#x263A;</li>
-      <li class= 'back'  style='left: 3em; top: 1em; '>&#x263A;</li>
-      <li class= 'back'  style='left: 1em; top: 2em; '>&#x263A;</li>
-      <li class= 'back'  style='left: 2em; top: 2em; '>&#x263A;</li>
-      <li class= 'back'  style='left: 3em; top: 2em; '>&#x263A;</li>
+        <li class='middle' style='left: 0em; top: 0em; '>&#x263A;</li>
+        <li class='middle' style='left: 2em; top: 0em; '>&#x263A;</li>
+        <li class='middle center-of-rotation' style='left: 1em; top: 1em; '>
+          &#x263A;</li>
+        <li class='middle' style='left: 0em; top: 2em; '>&#x263A;</li>
+        <li class='middle' style='left: 2em; top: 2em; '>&#x263A;</li>
 
-      <li class='middle' style='left: 1em; top: 0em; '>&#x263A;</li>
-      <li class='middle' style='left: 3em; top: 0em; '>&#x263A;</li>
-      <li class='middle center-of-rotation' style='left: 2em; top: 1em; '>
-        &#x263A;</li>
-      <li class='middle' style='left: 1em; top: 2em; '>&#x263A;</li>
-      <li class='middle' style='left: 3em; top: 2em; '>&#x263A;</li>
+        <li class='front'  style='left: 0em; top: 0em; '>&#x263A;</li>
+        <li class='front'  style='left: 1em; top: 0em; '>&#x263A;</li>
+        <li class='front'  style='left: 2em; top: 0em; '>&#x263A;</li>
+        <li class='front'  style='left: 0em; top: 1em; '>&#x263A;</li>
+        <li class='front'  style='left: 2em; top: 1em; '>&#x263A;</li>
+        <li class='front'  style='left: 0em; top: 2em; '>&#x263A;</li>
+        <li class='front'  style='left: 1em; top: 2em; '>&#x263A;</li>
+        <li class='front'  style='left: 2em; top: 2em; '>&#x263A;</li>
+      </ul>
+      <div class='listener state-listener'>
+        last rotation request: <pre class='live-data'>..</pre>
+      </div>
+    </div>
 
-      <li class='front'  style='left: 1em; top: 0em; '>&#x263A;</li>
-      <li class='front'  style='left: 2em; top: 0em; '>&#x263A;</li>
-      <li class='front'  style='left: 3em; top: 0em; '>&#x263A;</li>
-      <li class='front'  style='left: 1em; top: 1em; '>&#x263A;</li>
-      <li class='front'  style='left: 3em; top: 1em; '>&#x263A;</li>
-      <li class='front'  style='left: 1em; top: 2em; '>&#x263A;</li>
-      <li class='front'  style='left: 2em; top: 2em; '>&#x263A;</li>
-      <li class='front'  style='left: 3em; top: 2em; '>&#x263A;</li>
-    </ul>
-
-    <div class='fps'><span class='live-data'>..</span>fps</div>
-
+    <div class='listener fps-listener'>
+      <span class='live-data'>..</span>fps
+    </div>
   </div>
 </body>
 </html>

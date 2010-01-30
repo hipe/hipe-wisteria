@@ -19,7 +19,12 @@
 
   // ************ common functions ******************
 
-  var extend = function(x,y){for(z in y){x[z] = y[z];} return x;};
+  var extend = function(x,y){
+    var z;
+    for(z in y){ x[z] = y[z]; }
+    for(z in arguments[2]){ x[z] = arguemnts[2][z]; }
+    return x;
+  };
 
   var puts = function(msg){
     msg = 'terd '+msg;
@@ -98,6 +103,9 @@
     },
     timesEquals: function(vector){
       return this.each(function(val,idx){ this[idx]*=vector[idx];});
+    },
+    minusEquals: function(vector){
+      return this.each(function(val,idx){ this[idx]-=vector[idx];});
     }
   };
 
@@ -116,13 +124,16 @@
     }
   };
 
-
+  var Moveable = function(){};
+  Moveable.prototype = {};
 
   var AbstractWireframe = function(length){
     var me =
       extend(new Vector(new Array(length)), AbstractWireframe.prototype);
     me._beforeRun = [];
     me._afterRun = [];
+    me.state = 'ready';
+    me.stateListeners = null;
     return me;
   };
   AbstractWireframe.prototype = {
@@ -135,6 +146,16 @@
         this[idx] = wireframe.makeEmptyScreenPoint(wireframe[idx], idx);
       });
     },
+    addStateListener:function(f){
+      if (!this.stateListeners) this.stateListeners = [];
+      this.stateListeners.push(f);
+    },
+    _notifyStateListeners: function(){
+      var rot = this.currentAxisRotation;
+      var data = { rot: {x:rot[0],y:rot[1],z:rot[2]}};
+      list(this.stateListeners).each(function(f){f(data);});
+    },
+    setCamera:function(c){this.camera = c;},
     beforeRun: function(f){ this._beforeRun.push(f); },
     afterRun: function(f){ this._afterRun.push(f); },
     beforeRunNotify: function(){
@@ -143,21 +164,31 @@
     afterRunNotify: function(){
       list(this._afterRun).each(function(f){ f(); });
     },
+    pause: function(){this.state='paused'; puts('paused a wf'); },
+    resume: function(){this.state='ready';},
+    rotationRequest: function(request){
+      this.mostRecentRotationRequest = request;
+      // this doesn't change the this.axisRotationDelta
+      this.currentAxisRotation.plusEquals(request.rotationDelta);
+      if (this.stateListeners) this._notifyStateListeners();
+      this.state = 'ready'; // watch this! ...
+    },
     setAxisRotationAndRotationDelta: function(a,b){
       this.currentAxisRotation = a;
       this.axisRotationDelta = b;
     },
     applyCurrentRotation: function(){
+      if ('ready'!==this.state) return;
       this.currentAxisRotation.plusEquals(this.axisRotationDelta);
     },
-    render: function(camera) {
+    render: function() {
+      if ('ready'!==this.state) return;
       // @todo unwrapping the calls to map
       var rotation = this.currentAxisRotation;
       var sin = rotation.map(function(x){return Math.sin(x);});
       var cos = rotation.map(function(x){return Math.cos(x);});
       var screenPoints = this.screenPoints;
       this.each(function(pt,idx){
-        var _cam = camera;
         var _cos = cos, _sin = sin; // @todo just for debugging
         // rotation around x
         var xy = cos[0]*pt[1] - sin[0]*pt[2];
@@ -169,7 +200,8 @@
         var zx = cos[2]*yx - sin[2]*xy;
         var zy = sin[2]*yx + cos[2]*xy;
 
-        var scaleFactor = camera.focalLength/(camera.focalLength + yz);
+        var scaleFactor = this.camera.focalLength/
+          (this.camera.focalLength + yz);
         var x = zx*scaleFactor;
         var y = zy*scaleFactor;
         //var z = -yz;
@@ -177,6 +209,12 @@
         var screenPt = screenPoints[idx];
         screenPt.setPointAndRender(x,y,scaleFactor);
       });
+      if (this.mostRecentRotationRequest) {
+        var req = this.mostRecentRotationRequest;
+        this.mostRecentRotationRequest = null;
+        req.requester.rotationFulfilled(req);
+        this.state = req.stateAfterRotation;
+      }
     }
   };
 
@@ -227,6 +265,7 @@
         this.axisRotationPrototype.copy(),
         this.currentRotationDeltaPrototype.copy()
       );
+      wireframe.setCamera(this.camera);
       this.push(wireframe);
     },
     addFipsListener: function(f){
@@ -251,7 +290,7 @@
     _renderThisFrameAndTheNextFrame: function(){
       var t1 = new Date().getTime();
       this.each(function(wireframe){
-        wireframe.render(this.camera);
+        wireframe.render();
         wireframe.applyCurrentRotation();
       });
       var t2 = (new Date().getTime());
@@ -298,10 +337,74 @@
     }
   };
 
-  var CssWireframe = function(ul){
+
+  var MoveableSceneObject = function(widget){
+    this._init(widget);
+    return this;
+  };
+  MoveableSceneObject.prototype = {
+    isMoveableSceneObject:true,
+    // a mouse's positive y goes down, a rot. vector's positive y goes up
+    changeMouseMoveToRotation: new Vector([0.0035, -0.0035]),
+    _init:function(widget){
+      this.bb = widget.element; // bounding box
+      this.wireframe = this.bb.find('ul').data('wireframe');
+      if (this.bb.hasClass('spinnable')) this._initSpinnable();
+    },
+    getWireframe:function(){return this.wireframe;},
+    _initSpinnable:function(){
+      this.mouseState = 'ready';
+      var me = this;
+      this.bb.bind('mousedown',function(e,f){return me.mousedown(e,f);});
+      this.bb.bind('mousemove',function(e,f){return me.mousemove(e,f);});
+      this.bb.bind('mouseup',function(e,f){return me.mouseup(e,f);});
+    },
+    _mouseVector: function(e){
+      var v = Vector([e.pageX, e.pageY]);
+      v.timeStamp = e.timeStamp;
+      return v;
+    },
+    mousedown:function(e,f){
+        puts('md _mde'); _mde = e;
+      e.stopPropagation();
+      this.mouseState = 'down';
+      this.wireframe.pause();
+      this.m1 = this._mouseVector(e);
+      return false;
+    },
+    mousemove: function(e,f){
+      if ('down'!==this.mouseState) return false; /* @todo */
+        puts('mm _mme'); _mme = e;
+      e.stopPropagation();
+      var m2 = this._mouseVector(e);
+      var move = m2.copy().minusEquals(this.m1);
+      var rotDelta = move.copy().timesEquals(this.changeMouseMoveToRotation);
+      rotDelta[2] = 0.0; // ignoring z-axis for now.. @todo
+      var rotationRequest = {
+        rotationDelta : rotDelta, m1: this.m1, m2:m2,
+        requester: this, stateAfterRotation: 'paused'
+      };
+      // this.wireframe.clearRotationDelta(); //
+      this.wireframe.rotationRequest(rotationRequest);
+      return false;
+    },
+    rotationFulfilled: function(origRequest){
+      this.m1 = origRequest.m2;
+    },
+    mouseup:function(e,f){
+      if ('down'!==this.mouseState) return;
+      this.mouseState = 'ready';
+      puts('mu _mue'); _mue = e;
+      this.wireframe.resume();
+    }
+  };
+
+  var CssWireframe = function(sc, ul){
     ul = $(ul);
     var me, li = ul.children();
     me = extend(new AbstractWireframe(li.length),CssWireframe.prototype);
+    me.sceneController = sc;
+    ul.data('wireframe',me);
     new CssWireframe.Parse(me, ul, li); // has state but we don't keep it
     me.abstractWireframePostInit();
     return me;
@@ -399,17 +502,17 @@
         zIndex = this.zIndex(el);
       }
       if (1===li.length) return null; // not sure about this wrt zIndex
-      this.normalizingVector = this.makeNormalizer(map, frontZindex);
+      this.norm = this.makeNormalizer(map, frontZindex);
       for (var i=this.wireframe.length-1; i>this.idx; i--){
-        this.wireframe[i][2] =
-          this.normalizingVector.depth.relativeScreenPx(
-            this.wireframe[i].element
-          );
+        var wireframePt = this.wireframe[i];
+        el = wireframePt.element;
+        var normZ = this.norm.depth.relativeScreenPx(el);
+        wireframePt[2] = normZ;
       }
       return null;
     },
     back: function(ul,li){
-      var idx = this.idx, norm = this.normalizingVector;
+      var idx = this.idx, norm = this.norm;
       while(-1<idx){
         var el = $(li[idx]);
         var newPt = new Vector([
@@ -469,46 +572,56 @@
     * since you know the relative screen pixel location of these points,
     * you can make a normalizer.
     */
-    makeNormalizer:function(map){
+    makeNormalizer:function(map, frontZindex){
       var p = this;
-      var normalizingVector = new Vector([null,null,null]);
+      var normV = new Vector([null,null,null]);
       map.each(function(axis, idx){
         var minIdx = axis.winner(function(a,b){return a.units < b.units;});
         var maxIdx = axis.winner(function(a,b){return a.units > b.units;});
         var minRec = axis[minIdx], maxRec = axis[maxIdx];
         var min = minRec.units, max = maxRec.units;
-        if (max - min < 1) return fatal("for now, min and max "+
-          axis.name+' '+p.assertUnit+" must be at least one "+p.assertUnit+
-          " apart from each other in front level.  Had "+min+" and "+max);
+        if (max - min < 1) return p.boundsTooClose(axis,min,max);
         var unitLength = (maxRec.screen-minRec.screen) /
           (maxRec.units - minRec.units);
-        var normalizer = {};
-        normalizer.unitLength = unitLength;
-        normalizer.offsettingUnits = minRec.units;
-        normalizer.offsettingAmount = minRec.screen;
-        normalizer.axisName = axis.name;
+        var normalizer = {
+         unitLength:       unitLength,
+         offsettingUnits:  minRec.units,
+         offsettingAmount: minRec.screen,
+         axisName:         axis.name
+        };
         normalizer.relativeScreenPx = function(el){
           var thisUnits = p.unitParser[this.axisName](el).units;
           var rslt = (thisUnits - this.offsettingUnits) *
             this.unitLength + this.offsettingAmount;
           return rslt;
         };
-        normalizingVector[idx] = normalizer;
-        normalizingVector[axis.name] = normalizer;
+        normV[idx] = normalizer;
+        normV[axis.name] = normalizer;
         return null;
       });
+      this.makeZindexNormalizer(normV, frontZindex);
+      return normV;
+    },
+    makeZindexNormalizer: function(normV, frontZindex){
+      var parse = this;
       var zIndexNormalizer = {
         // we arbitrarily choose left not top to normalize z-Index
-        unitLength: normalizingVector.left.unitLength,
+        unitLength: normV.left.unitLength,
+        frontZindex : frontZindex,
         relativeScreenPx: function(el){
-          var zIndex = p.zIndex(el);
-          var rslt = zIndex * this.unitLength;
+          var zIndex = parse.zIndex(el);
+          var rslt = (this.frontZindex - zIndex) * this.unitLength;
           return rslt;
         }
       };
-      normalizingVector[2] = zIndexNormalizer;
-      normalizingVector.depth = normalizingVector[2];
-      return normalizingVector;
+      normV[2] = normV.depth = zIndexNormalizer;
+      return null;
+    },
+    boundsTooClose: function(axis,min,max){
+      return fatal("for now, min and max "+
+        axis.name+' '+this.assertUnit+" must be at least one "+
+        +this.assertUnit+" apart from each other in front level. "+
+        "Had "+min+" and "+max);
     },
     zIndex:function(el){
       var str = el.css('zIndex'), rslt;
@@ -521,7 +634,7 @@
 
   // ********************* start jquery-specific code ***************
 
-  $.widget('ui.hipe_terd',{
+  $.widget('ui.hipe_terd_scene',{
     _init: function(){
       this.sceneController = new SceneController(this.options);
       this.addFipsListenersIfThereAreAny();
@@ -530,7 +643,7 @@
         this.sceneController.run();
     },
     addFipsListenersIfThereAreAny: function(){
-      var els = this.element.find('.fps .live-data');
+      var els = this.element.find('.fps-listener .live-data');
       if (els.length) this.sceneController.addFipsListener(function(fpsData){
         var s = 'actual fps: '+fpsData.actualFps.toFixed(1)+' '+
                 'capacity: '+fpsData.percentCapacity.toFixed(1)+"% "+
@@ -540,11 +653,28 @@
     },
     addWireframes: function(){
       var me = this;
+      var sc = this.sceneController;
       this.element.find(
       'ul.this-ul-is-actually-a-wireframe-model-of-a-three-dimensional-object'
       ).each(function(){
-        me.sceneController.addWireframe(new CssWireframe(this));
+        var wf = new CssWireframe(sc, this);
+        me.sceneController.addWireframe(wf);
       });
+    }
+  });
+
+  $.widget('ui.hipe_terd_object',{
+    _init:function(){
+      var moveable = new MoveableSceneObject(this);
+      var sl = this.element.find('.state-listener .live-data');
+      if (sl.length) {
+        var wf = moveable.getWireframe();
+        wf.addStateListener(function(data){
+          var str = "current rotation:\n"+'x: '+data.rot.x.toFixed(3)+
+            ' y: '+data.rot.y.toFixed(3)+' z: '+data.rot.z.toFixed(3);
+          sl.html(str);
+        });
+      }
     }
   });
 
