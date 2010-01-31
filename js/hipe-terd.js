@@ -33,7 +33,7 @@
 
   var fatal = function(msg){
     msg = 'terd '+msg;
-    throw new Error(msg);
+    throw(new Error(msg));
   };
 
   var list=function(){
@@ -43,9 +43,9 @@
       for(var i=0; i<args.length; i++){
         f(args[i]);
       };
-      return args;
+      return args; // return the list when you call each()
     };
-    return args;
+    return args; // return the argument when you build the list()
   };
 
 
@@ -54,6 +54,12 @@
   var Vector = function(arr){
     return extend(arr,Vector.prototype);
   };
+  Vector.fill = function(num){
+    var val = (arguments.length > 0) ? arguments[1] : undefined;
+    var v = new Vector(new Array(num));
+    return v.each(function(_,idx){ this[idx] = val; });
+  };
+
   Vector.prototype = {
     isVector: true,
     prototypeFunction: Vector,
@@ -98,6 +104,9 @@
     max: function(){
       return this[this.winnner(function(a,b){return a>b;})];
     },
+    set: function(v2){
+      return this.each(function(val,idx){ this[idx] = v2[idx]; });
+    },
     plusEquals: function(vector){
       return this.each(function(val,idx){ this[idx]+=vector[idx];});
     },
@@ -106,6 +115,17 @@
     },
     minusEquals: function(vector){
       return this.each(function(val,idx){ this[idx]-=vector[idx];});
+    },
+    dividedByEquals: function(vector){
+      return this.each(function(val,idx){ this[idx]/=vector[idx];});
+    },
+    distance: function(v2){
+      var sum = 0;
+      this.each(function(val,idx){ sum += Math.pow(v2[idx]-val,2); });
+      return Math.sqrt(sum);
+    },
+    inspect: function(){
+      return this.map(function(val){return '['+val+']';}).join('');
     }
   };
 
@@ -117,6 +137,7 @@
     return extend(me, Camera.prototype);
   };
   Camera.prototype = {
+    getFocalLength:function(){return this.focalLength;},
     isCamera: true,
     scaleRatio: function(item){
       // @todo -- divide by zero!! FIXME @FIXME TODO @TODO
@@ -128,22 +149,27 @@
   Moveable.prototype = {};
 
   var AbstractWireframe = function(length){
-    var me =
-      extend(new Vector(new Array(length)), AbstractWireframe.prototype);
-    me._beforeRun = [];
-    me._afterRun = [];
-    me.state = 'ready';
-    me.stateListeners = null;
-    return me;
+    return extend(new Vector(new Array(length)), AbstractWireframe.prototype);
   };
   AbstractWireframe.prototype = {
     isAbstractWireframe: true,
     prototypeFunction: AbstractWireframe,
-    abstractWireframePostInit: function(){
+    init: function(sceneController){
+      this.sceneController = sceneController;
+      this._beforeRun = [];
+      this._afterRun = [];
+      this.state = 'ready';
+      this.stateListeners = null;
+      this.rotateTransform = new Rotate();
+      this.rotateTransform.setFocalLength(
+        this.sceneController.getCamera().getFocalLength()
+      );
+    },
+    initScreenPoints: function(){
       this.screenPoints = new Vector(new Array(this.length));
       var wireframe = this;
       this.screenPoints.each(function(value,idx){
-        this[idx] = wireframe.makeEmptyScreenPoint(wireframe[idx], idx);
+        this[idx] = wireframe.makeEmptyScreenPoint(wireframe[idx]);
       });
     },
     addStateListener:function(f){
@@ -155,7 +181,6 @@
       var data = { rot: {x:rot[0],y:rot[1],z:rot[2]}};
       list(this.stateListeners).each(function(f){f(data);});
     },
-    setCamera:function(c){this.camera = c;},
     beforeRun: function(f){ this._beforeRun.push(f); },
     afterRun: function(f){ this._afterRun.push(f); },
     beforeRunNotify: function(){
@@ -166,6 +191,7 @@
     },
     pause: function(){this.state='paused'; puts('paused a wf'); },
     resume: function(){this.state='ready';},
+    currentRotation: function(){return this.currentAxisRotation;},
     rotationRequest: function(request){
       this.mostRecentRotationRequest = request;
       // this doesn't change the this.axisRotationDelta
@@ -181,33 +207,13 @@
       if ('ready'!==this.state) return;
       this.currentAxisRotation.plusEquals(this.axisRotationDelta);
     },
+    // old version in 8d8ed
     render: function() {
       if ('ready'!==this.state) return;
-      // @todo unwrapping the calls to map
-      var rotation = this.currentAxisRotation;
-      var sin = rotation.map(function(x){return Math.sin(x);});
-      var cos = rotation.map(function(x){return Math.cos(x);});
-      var screenPoints = this.screenPoints;
+      this.rotateTransform.set(this.currentAxisRotation);
       this.each(function(pt,idx){
-        var _cos = cos, _sin = sin; // @todo just for debugging
-        // rotation around x
-        var xy = cos[0]*pt[1] - sin[0]*pt[2];
-        var xz = sin[0]*pt[1] + cos[0]*pt[2];
-        // rotation around y
-        var yz = cos[1]*xz - sin[1]*pt[0];
-        var yx = sin[1]*xz + cos[1]*pt[0];
-        // rotation around z
-        var zx = cos[2]*yx - sin[2]*xy;
-        var zy = sin[2]*yx + cos[2]*xy;
-
-        var scaleFactor = this.camera.focalLength/
-          (this.camera.focalLength + yz);
-        var x = zx*scaleFactor;
-        var y = zy*scaleFactor;
-        //var z = -yz;
-
-        var screenPt = screenPoints[idx];
-        screenPt.setPointAndRender(x,y,scaleFactor);
+        this.rotateTransform.go(pt, this.screenPoints[idx]);
+        this.screenPoints[idx].render();
       });
       if (this.mostRecentRotationRequest) {
         var req = this.mostRecentRotationRequest;
@@ -218,6 +224,60 @@
     }
   };
 
+  /** @constructor
+  */
+  var Rotate = function(rotate){
+    this.focalLength = null;
+    if (rotate) this.set(rotate);
+    return this;
+  };
+  Rotate.prototype = {
+    inspect: function(){ return this.rotate.inspect(); },
+    setFocalLength: function(len){ this.focalLength = len; },
+    set:function(rotate){
+      if (rotate.isVector) { this.rotate = rotate; }
+      else {
+        if (this._copied) {
+          this.rotate.set(rotate);
+        } else {
+          // to be safe -- if user tries to alter argument array,
+          // or if we alter it.
+          this.rotate = new Vector(rotate).copy();
+          this._copied = true;
+        }
+      }
+      this.sin = rotate.map(function(x){return Math.sin(x);});
+      this.cos = rotate.map(function(x){return Math.cos(x);});
+      return this;
+    },
+
+    go: function(pt, resultPt){
+      if (!resultPt) resultPt = Vector.fill(3);
+
+      // rotate around z (roll)
+      var x2 = pt[0] * this.cos[2]   - pt[1] * this.sin[2];
+      var y2 = pt[0] * this.sin[2]   + pt[1] * this.cos[2];
+
+      // rotate around x (pitch)
+      resultPt[1] = y2 * this.cos[0] - pt[2] * this.sin[0];
+      var z3 = y2 * this.sin[0]      + pt[2] * this.cos[0];
+
+      // rotate around y (yaw)
+      resultPt[2] = z3 * this.cos[1] - x2 * this.sin[1];
+      resultPt[0] = z3 * this.sin[1] + x2 * this.cos[1];
+
+      // as an optim we could take this cond. out & make it zero
+      if (null!==this.focalLength) {
+        var scaleFactor = this.focalLength /
+          (this.focalLength + resultPt[2]);
+        resultPt[0] *= scaleFactor;
+        resultPt[1] *= scaleFactor;
+        resultPt.scaleFactor = scaleFactor;
+      }
+
+      return resultPt;
+    }
+  };
 
   var SceneController = function(options){
     var me = extend(new Vector([]), SceneController.prototype);
@@ -244,6 +304,7 @@
       this.fipsListeners = null;
       this.updateFipsEvery = 2000;
     },
+    getCamera: function(){ return this.camera; },
     run: function(){
       if (this.fipsListeners) this.timeOfLastFipsUpdate = 0;
       this.each(function(wireframe){wireframe.beforeRunNotify();});
@@ -265,7 +326,6 @@
         this.axisRotationPrototype.copy(),
         this.currentRotationDeltaPrototype.copy()
       );
-      wireframe.setCamera(this.camera);
       this.push(wireframe);
     },
     addFipsListener: function(f){
@@ -326,14 +386,13 @@
     return extend(me, CssScreenPoint.prototype);
   };
   CssScreenPoint.prototype = {
-    setPointAndRender: function(x,y,scaleFactor){
-      var cssRequest = {
-        fontSize: 100 * scaleFactor + '%',
-        left: y+'px',
-        top: x+'px',
-        opacity: scaleFactor - 0.5
-      };
-      this.element.css(cssRequest);
+    render: function(){
+      this.element.css({
+          fontSize: 100 * this.scaleFactor + '%',
+          left: this[0]+'px',
+          top: this[1]+'px',
+          opacity: this.scaleFactor - 0.5
+      });
     }
   };
 
@@ -344,8 +403,6 @@
   };
   MoveableSceneObject.prototype = {
     isMoveableSceneObject:true,
-    // a mouse's positive y goes down, a rot. vector's positive y goes up
-    changeMouseMoveToRotation: new Vector([0.0035, -0.0035]),
     _init:function(widget){
       this.bb = widget.element; // bounding box
       this.wireframe = this.bb.find('ul').data('wireframe');
@@ -358,9 +415,12 @@
       this.bb.bind('mousedown',function(e,f){return me.mousedown(e,f);});
       this.bb.bind('mousemove',function(e,f){return me.mousemove(e,f);});
       this.bb.bind('mouseup',function(e,f){return me.mouseup(e,f);});
+      // find frontmost z value for normalizing mouse drags.
+      var idx = this.wireframe.winner(function(a,b){ return a[2]>b[2]; });
+      this.frontmostZ = this.wireframe[idx][2];
     },
     _mouseVector: function(e){
-      var v = Vector([e.pageX, e.pageY]);
+      var v = Vector([e.pageX, e.pageY, this.frontmostZ]);
       v.timeStamp = e.timeStamp;
       return v;
     },
@@ -373,19 +433,73 @@
       return false;
     },
     mousemove: function(e,f){
-      if ('down'!==this.mouseState) return false; /* @todo */
-        puts('mm _mme'); _mme = e;
-      e.stopPropagation();
+      if ('down'!==this.mouseState) return false; // @todo false?
+      e.stopPropagation(); // don't highlight/select text
+      /*
+      * mousedown happened and now mouse drag, so we have an x and y delta
+      * (often it's zero of one and one of the other.)  Imagine a pane of
+      * plexiglass placed parallel to the screen on the nose of the object.
+      * (at the frontmost z level when the model isn't rotated).
+      * Imagine your mouse drag drew a straight line segment on that
+      * plexiglass with a vis-a-vis brand marker from x:0 y:0 to wherever.
+      * We need to put this in terms of a rotation that happens in reference
+      * to the model head-on: if the model is facing to its left, it's as
+      * if this rotation happened on its right, so we rotate the plexiglass
+      * (3d vector thing with six components) by the negative of the model
+      * rotation.  then we somehow get 2 radians.
+      * because this was designed for mice that don't work in 3d,
+      * we don't have to worry about z-depth, and will use a unit sphere
+      * for the rotation calculation.
+      */
+      var m1 = this.m1;
       var m2 = this._mouseVector(e);
-      var move = m2.copy().minusEquals(this.m1);
-      var rotDelta = move.copy().timesEquals(this.changeMouseMoveToRotation);
-      rotDelta[2] = 0.0; // ignoring z-axis for now.. @todo
-      var rotationRequest = {
-        rotationDelta : rotDelta, m1: this.m1, m2:m2,
-        requester: this, stateAfterRotation: 'paused'
+      var plexiglassRotation = this.wireframe.currentAxisRotation.copy().
+        timesEquals([-1,-1,-1]);
+      var rotate = new Rotate(plexiglassRotation);
+      var m1v = new Vector([0,0,m1[2]]);
+      var m2v = new Vector([m2[0]-m1[0], m2[1]-m1[1], m1[2]]);
+      var m1vr = new Vector([null,null,null]);
+      var m2vr = new Vector([null,null,null]);
+      rotate.go(m1v, m1vr);
+      rotate.go(m2v, m2vr);
+      var it = [m1[2],m1[2],m1[2]];
+      m1vr.dividedByEquals(it);
+      m2vr.dividedByEquals(it);
+
+
+      //hipe: in 3D, I’d first project the vertex onto the XY-plane, and
+      // determine the angle between the line going through the origin and
+      //through the projected point, and the X axis
+      //hipe: if you call that point P', then you can determine the angle
+      //  between OP' and OP
+      // ddfreyne: hipe: that gives you two angles… one to orient yourself “on
+      // the ground” and another one to aim up/down
+      //07:09 ddfreyne: hipe: does that make sense?
+      //ddfreyne: hipe: since you’re working in a rectangular triangle,
+      //arctan(opposite/adjacent) where you have opposite (= z) and adjacent
+      //(= distance from P' to O, i.e. sqrt(xp**2 + yp**2))
+
+      //tbuehlmann: let v = (v_1, v_2, v_3) be the vector OP, so the angle
+      // between v and the XY plane is acos(|v_3|/sqrt(v_1^2 + v_2^2 + v_3^2))
+      tbuelmannXY = function(v){
+        return Math.acos( Math.abs(v[2]) /
+          Math.sqrt(Math.pow(v[0],2) + Math.pow(v[1],2) + Math.pow(v[2],2))
+        );
       };
-      // this.wireframe.clearRotationDelta(); //
-      this.wireframe.rotationRequest(rotationRequest);
+      // try acos(|v_2|/(1*sqrt(v_1^2 + v_2^2 + v_3^2)))
+      tbuelmannXZ = function(v){
+        return Math.acos(  Math.abs(v[1]) /
+          Math.sqrt(Math.pow(v[0],2) + Math.pow(v[1],2) + Math.pow(v[2],2))
+        );
+      };
+      var xyangle1 = tbuelmannXY(m1vr);
+      var xyangle2 = tbuelmannXY(m2vr);
+      var zrot = xyangle2 - xyangle1;
+      var xzangle1 = tbuelmannXZ(m1vr);
+      var xzangle2 = tbuelmannXZ(m2vr);
+      var yrot = xzangle2 - xzangle1;
+      var rotRequest = {requester: this, rotationDelta:[0, yrot, zrot],m2:m2};
+      this.wireframe.rotationRequest(rotRequest);
       return false;
     },
     rotationFulfilled: function(origRequest){
@@ -403,16 +517,19 @@
     ul = $(ul);
     var me, li = ul.children();
     me = extend(new AbstractWireframe(li.length),CssWireframe.prototype);
-    me.sceneController = sc;
-    ul.data('wireframe',me);
-    new CssWireframe.Parse(me, ul, li); // has state but we don't keep it
-    me.abstractWireframePostInit();
+    me.init(sc, ul, li);
     return me;
   };
   CssWireframe.prototype = {
+    init:function(sc, ul, li){
+      AbstractWireframe.prototype.init.call(this, sc);
+        // for other widgets that need a handle to this:
+      ul.data('wireframe',this);
+      new CssWireframe.Parse(this, ul, li); // has state but we don't keep it
+      this.initScreenPoints();
+    },
     makeEmptyScreenPoint: function(innatePt, idx){
-      var rslt = new CssScreenPoint(innatePt.element);
-      return rslt;
+      return new CssScreenPoint(innatePt.element);
     }
   };
   CssWireframe.Parse = function(wireframe, ul, li){
@@ -675,6 +792,15 @@
           sl.html(str);
         });
       }
+    }
+  });
+
+  $.widget('ui.hipe_terd_lib',{
+    _init:function(){},
+    lib:function(){
+      return {Vector:Vector, Rotate: Rotate, list:list,
+        extend:extend
+      };
     }
   });
 

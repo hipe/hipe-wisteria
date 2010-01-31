@@ -17,7 +17,7 @@ window.jQuery(document).ready(function($){
 
   test("rotations",function(){
     var rotv = new lib.Vector.fill(3);
-    var rotTrans = new lib.OrthoganalRotate();
+    var rotTrans = new lib.Rotate();
     var pt1 = new lib.Vector.fill(3);
     var tolerance = 6.123456789e-16;
     var _assert = function(start, rotate, target, msg){
