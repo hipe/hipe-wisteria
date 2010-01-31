@@ -4,16 +4,134 @@ window.jQuery(document).ready(function($){
 
   module("3d transformations");
 
+  //***** test support code
   var lib;
-  var common_setup = function(){
-    if (!lib) lib = $('#div-1').hipe_terd_lib().data('hipe_terd_lib').lib();
+  var commonSetup = function(){
+    if (!lib) lib = $.ui.hipe_terd_lib.prototype.lib();
   };
   var tolerance = 1.23456789e-16;
 
+  AngleAsserter = function(){};
+  AngleAsserter.prototype = {
+    angleOf: function(pt){
+      this.pt = lib.extend(pt, lib.Vector.prototype);
+      return this;
+    },
+    onPlane:function(plane){ this.plane = plane; return this; },
+    using:function(using){ this._using = using; return this;},
+    shouleBeCloseTo:function(number){
+      var meth = this.plane+'PlaneAngleUsing'+this._using;
+      var rslt = lib.Tbuehlmann[meth](this.pt);
+      var diff = number - rslt;
+      var msg = "angle of "+this.pt.inspect()+" on "+this.plane+" plane"+
+      " using "+this._using+
+      " should be close to "+number+".  Is "+diff+" away from it: "+rslt;
+      ok(Math.abs(diff)<this.tolerance,msg);
+    }
+  };
+
+
+  //***** tests
+
   test("load library",function(){
-    common_setup();
+    commonSetup();
     ok(lib,'library loaded');
   });
+
+
+  test("angles off of planes", function(){
+    commonSetup();
+    var assert = new AngleAsserter();
+    assert.tolerance = tolerance;
+    var planes = 'PlaneAndVector';
+    var vector = 'VectorVector';
+    var polar = 'Polar';
+    var hp = Math.PI/2;
+
+    // {xy|xz|yz} * {top|right|bottom|left|front|back} * {planes|vector|polar}
+
+    // xy
+    assert.angleOf([0,1,0] ).onPlane('xy').using(planes).shouleBeCloseTo(0);
+    assert.angleOf([0,1,0] ).onPlane('xy').using(vector).shouleBeCloseTo(0);
+    assert.angleOf([0,1,0] ).onPlane('xy').using(polar).shouleBeCloseTo(0);
+
+    assert.angleOf([1,0,0] ).onPlane('xy').using(planes).shouleBeCloseTo(0);
+    assert.angleOf([1,0,0] ).onPlane('xy').using(vector).shouleBeCloseTo(0);
+    assert.angleOf([1,0,0] ).onPlane('xy').using(polar).shouleBeCloseTo(0);
+
+    assert.angleOf([0,-1,0]).onPlane('xy').using(planes).shouleBeCloseTo(0);
+    assert.angleOf([0,-1,0]).onPlane('xy').using(vector).shouleBeCloseTo(0);
+    assert.angleOf([0,-1,0] ).onPlane('xy').using(polar).shouleBeCloseTo(0);
+
+    assert.angleOf([-1,0,0]).onPlane('xy').using(planes).shouleBeCloseTo(0);
+    assert.angleOf([-1,0,0]).onPlane('xy').using(vector).shouleBeCloseTo(0);
+    assert.angleOf([-1,0,0]).onPlane('xy').using(polar).shouleBeCloseTo(0);
+
+                      // no negative angles from vector version
+    assert.angleOf([0,0,-1]).onPlane('xy').using(planes).shouleBeCloseTo(-hp);
+    assert.angleOf([0,0,-1]).onPlane('xy').using(vector).shouleBeCloseTo(hp);
+    assert.angleOf([0,0,-1]).onPlane('xy').using(polar).shouleBeCloseTo(-hp);
+
+    assert.angleOf([0,0,1] ).onPlane('xy').using(planes).shouleBeCloseTo(hp);
+    assert.angleOf([0,0,1] ).onPlane('xy').using(vector).shouleBeCloseTo(hp);
+    assert.angleOf([0,0,1] ).onPlane('xy').using(polar).shouleBeCloseTo(hp);
+
+
+    // xz
+    assert.angleOf([0,1,0] ).onPlane('xz').using(planes).shouleBeCloseTo(hp);
+    assert.angleOf([0,1,0] ).onPlane('xz').using(vector).shouleBeCloseTo(hp);
+    assert.angleOf([0,1,0] ).onPlane('xz').using(polar).shouleBeCloseTo(hp);
+
+    assert.angleOf([1,0,0] ).onPlane('xz').using(planes).shouleBeCloseTo(0);
+    assert.angleOf([1,0,0] ).onPlane('xz').using(vector).shouleBeCloseTo(0);
+    assert.angleOf([1,0,0] ).onPlane('xz').using(polar).shouleBeCloseTo(0);
+
+    assert.angleOf([-1,0,0]).onPlane('xz').using(planes).shouleBeCloseTo(0);
+    assert.angleOf([-1,0,0]).onPlane('xz').using(vector).shouleBeCloseTo(0);
+    assert.angleOf([-1,0,0]).onPlane('xz').using(polar).shouleBeCloseTo(0);
+
+              // no neg angles from vector version
+    assert.angleOf([0,-1,0]).onPlane('xz').using(planes).shouleBeCloseTo(-hp);
+    assert.angleOf([0,-1,0]).onPlane('xz').using(vector).shouleBeCloseTo(hp);
+    assert.angleOf([0,-1,0]).onPlane('xz').using(polar).shouleBeCloseTo(-hp);
+
+    assert.angleOf([0,0,-1]).onPlane('xz').using(planes).shouleBeCloseTo(0);
+    assert.angleOf([0,0,-1]).onPlane('xz').using(vector).shouleBeCloseTo(0);
+    assert.angleOf([0,0,-1]).onPlane('xz').using(polar).shouleBeCloseTo(0);
+
+    assert.angleOf([0,0,1] ).onPlane('xz').using(planes).shouleBeCloseTo(0);
+    assert.angleOf([0,0,1] ).onPlane('xz').using(vector).shouleBeCloseTo(0);
+    assert.angleOf([0,0,1] ).onPlane('xz').using(polar).shouleBeCloseTo(0);
+
+
+    // yz
+    assert.angleOf([1,0,0] ).onPlane('yz').using(planes).shouleBeCloseTo(hp);
+    assert.angleOf([1,0,0] ).onPlane('yz').using(vector).shouleBeCloseTo(hp);
+    assert.angleOf([1,0,0] ).onPlane('yz').using(polar).shouleBeCloseTo(hp);
+
+    assert.angleOf([0,1,0] ).onPlane('yz').using(planes).shouleBeCloseTo(0);
+    assert.angleOf([0,1,0] ).onPlane('yz').using(vector).shouleBeCloseTo(0);
+    assert.angleOf([0,1,0] ).onPlane('yz').using(polar).shouleBeCloseTo(0);
+
+    assert.angleOf([-1,0,0]).onPlane('yz').using(planes).shouleBeCloseTo(-hp);
+    assert.angleOf([-1,0,0]).onPlane('yz').using(vector).shouleBeCloseTo(hp);
+    assert.angleOf([-1,0,0]).onPlane('yz').using(polar).shouleBeCloseTo(-hp);
+
+    assert.angleOf([0,-1,0]).onPlane('yz').using(planes).shouleBeCloseTo(0);
+    assert.angleOf([0,-1,0]).onPlane('yz').using(vector).shouleBeCloseTo(0);
+    assert.angleOf([0,-1,0]).onPlane('yz').using(polar).shouleBeCloseTo(0);
+
+    assert.angleOf([0,0,1] ).onPlane('yz').using(planes).shouleBeCloseTo(0);
+    assert.angleOf([0,0,1] ).onPlane('yz').using(vector).shouleBeCloseTo(0);
+    assert.angleOf([0,0,1] ).onPlane('yz').using(polar).shouleBeCloseTo(0);
+
+    assert.angleOf([0,0,-1]).onPlane('yz').using(planes).shouleBeCloseTo(0);
+    assert.angleOf([0,0,-1]).onPlane('yz').using(vector).shouleBeCloseTo(0);
+    assert.angleOf([0,0,-1]).onPlane('yz').using(polar).shouleBeCloseTo(0);
+
+
+  });
+
 
   test("rotations",function(){
     var rotv = new lib.Vector.fill(3);

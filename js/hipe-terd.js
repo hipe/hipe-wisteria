@@ -7,12 +7,26 @@
 * Dual licensed under the MIT or GPL Version 2 licenses.
 * (the same license as jquery: http://docs.jquery.com/License)
 *
-* At the core of this is some code from devirtuoso, without whom
-*   i would have had to spend many many more hours on this
-*  www.devirtuoso.com
-*
 * Depends:
 * ui.core.js
+*
+* Thank you's / credits:
+*  This started out as a rewrite of an engine from devirtuoso,
+*    without whose excellently well documented and accessible code
+*    this would have taken many many more hours by about a factor of five.
+*       www.devirtuoso.com
+*  The underlying architecture is decidedly inspired by their engine.
+*  (camera, scene, etc.)
+*
+*  I didn't anticipate that getting shapes to rotate with a mouse would
+*  be more difficult than rendering them in the first place (by a factor
+*  of about three and counting..).  The trig formulas at the core of this
+*  I could have never come up with on my own without probably dozens or
+*  hundreds of additional hours of trig study.  For every pixel that every
+*  shape rotates with a mouse I owe a thank you to T. Bühlmann, who not
+*  only solved the problem for me, but came up with three solutions and
+*  benchmarked each of them.
+*
 *
 */
 (function($) {
@@ -145,9 +159,6 @@
     }
   };
 
-  var Moveable = function(){};
-  Moveable.prototype = {};
-
   var AbstractWireframe = function(length){
     return extend(new Vector(new Array(length)), AbstractWireframe.prototype);
   };
@@ -224,8 +235,7 @@
     }
   };
 
-  /** @constructor
-  */
+  /** @constructor */
   var Rotate = function(rotate){
     this.focalLength = null;
     if (rotate) this.set(rotate);
@@ -373,7 +383,6 @@
 
 
 
-
   //****************** start css-specific code ********************
 
   /**
@@ -395,6 +404,58 @@
       });
     }
   };
+
+  /**
+  * Get the angle that a 3d point makes from 0,0,0 to it on one of the planes.
+  * This is ported blindly to Javascript from the thorough work of Thomas
+  * Bühlmann, without whom we wouldn't have been able to rotate our shapes
+  * without picking the laptop up off the desk.
+  * http://pastie.org/802804
+  * There are 3 variant formulas for this, and on top of that one variant
+  * for each plane.  We will use what is presumed to be the fastest formula
+  * (plane/vector) but the other two are included(?) for completeness and
+  * possible future benchmarking.
+  */
+  var Tbuehlmann = {
+    halfPi: Math.PI / 2,
+    xyPlaneAngleUsingPlaneAndVector:function(pt){ return this._plane(pt,2);},
+    xzPlaneAngleUsingPlaneAndVector:function(pt){ return this._plane(pt,1);},
+    yzPlaneAngleUsingPlaneAndVector:function(pt){ return this._plane(pt,0);},
+    _plane:function(pt, idx){
+      return Math.asin(
+        pt[idx] /       // took abs() off
+        Math.sqrt(
+          Math.pow(pt[0],2) + Math.pow(pt[1],2) + Math.pow(pt[2],2)
+        )
+      );
+    },
+    xyPlaneAngleUsingVectorVector:function(pt){return this._vector(pt,0,1);},
+    xzPlaneAngleUsingVectorVector:function(pt){return this._vector(pt,0,2);},
+    yzPlaneAngleUsingVectorVector:function(pt){return this._vector(pt,1,2);},
+    _vector: function(v, a, b){
+      var squared = [ Math.pow(v[0],2), Math.pow(v[1],2), Math.pow(v[2],2) ];
+      var bottomTerm = (
+        Math.sqrt( squared[0] + squared[1] + squared[2] ) *
+        Math.sqrt( squared[a] + squared[b] )
+      );
+      return Math.acos( bottomTerm == 0 ? 0 :
+        ( squared[a]+squared[b] / bottomTerm ) // took abs() off of top term
+      );
+    },
+    xyPlaneAngleUsingPolar:function(pt){ return this._polar(pt,2,0,1); },
+    xzPlaneAngleUsingPolar:function(pt){ return this._polar(pt,1,0,2); },
+    yzPlaneAngleUsingPolar:function(pt){ return this._polar(pt,0,1,2); },
+    _polar: function(pt,a,b,c){
+      return this.halfPi - (
+          this.halfPi - Math.atan(
+            pt[a] / Math.sqrt( Math.pow(pt[b],2) + Math.pow(pt[c],2) )
+          )
+      );
+    }
+  };
+  Tbuehlmann.xyAngle = Tbuehlmann.xyPlaneAngleUsingPlaneAndVector;
+  Tbuehlmann.xzAngle = Tbuehlmann.xzPlaneAngleUsingPlaneAndVector;
+  Tbuehlmann.yzAngle = Tbuehlmann.yzPlaneAngleUsingPlaneAndVector;
 
 
   var MoveableSceneObject = function(widget){
@@ -433,54 +494,91 @@
       return false;
     },
     mousemove: function(e,f){
-      if ('down'!==this.mouseState) return false; // @todo false?
-      e.stopPropagation(); // don't highlight/select text
       /*
       * mousedown happened and now mouse drag, so we have an x and y delta
-      * (often it's zero of one and one of the other.)  Imagine a pane of
-      * plexiglass placed parallel to the screen on the nose of the object.
-      * (at the frontmost z level when the model isn't rotated).
-      * Imagine your mouse drag drew a straight line segment on that
-      * plexiglass with a vis-a-vis brand marker from x:0 y:0 to wherever.
-      * We need to put this in terms of a rotation that happens in reference
-      * to the model head-on: if the model is facing to its left, it's as
-      * if this rotation happened on its right, so we rotate the plexiglass
-      * (3d vector thing with six components) by the negative of the model
-      * rotation.  then we somehow get 2 radians.
-      * because this was designed for mice that don't work in 3d,
-      * we don't have to worry about z-depth, and will use a unit sphere
-      * for the rotation calculation.
+      * (delta meaning how much was added or removed to x and y in this move.)
+      * (often it's zero of one and one of the other). Imagine you have a pane
+      * of plexiglass of the relevant 2 dimensions of the bounding box of the
+      * object.
+      * The edges have been sanded so you don't cut yourself.
+      * The pane is parallel to the screen on the nose of the object
+      * (at the frontmost z level when the object isn't rotated).
+      * Your mousedrag makes a straight line segment between this current
+      * point and the point of the last mousemove or mousedown.
+      * Imagine we take a vis-a-vis® branch marker and draw a line on the
+      * plexiglass, tracing the path of your mouse, but it starts from
+      * world coordinates x:0 y:0 (probably the middle of the plexiglass)
+      * to wherever. this line has the same orientation and length (magnitude)
+      * as the line you drew with your mouse, but we have translated it to
+      * start at world 0,0.
+      * Rotations on the model (i.e. object) happen in terms of the
+      * model's axes.  If the model has no rotation, a positive rotation
+      * around X of (PI/4) will result in the model facing upward 45°.
+      * No matter which direction the model is facing (no matter what
+      * rotation the model currently has), if we apply this same rotation
+      * the model will rotate the same way **relative to itself.**  If it's
+      * facing downwards 45° and we apply X: +.25 π again, it
+      * will end up looking straight at us. If it's facing us but upside down,
+      * it will end up being still upside down but looking towards our feet.
+      * (the model is a giant severed head, by the way.  Like a easter island
+      * statue but more gruesome.)
+      * So the problem is this: When we drag our mouse on the plexiglass
+      * that's between the model and us, we expect it to move "that way",
+      * but when we tell a model to rotate it has to be in terms of angles
+      * relative to the model's
+      * orientation at the time.  If we did a mouse drag up, but the model
+      * is laying down on its right side and facing us, then we actually want
+      * it to turn to its left.
+      * The way we accomplish this is by rotating the plexiglass **with the
+      * opposite rotation that the model has.**.  If the model is facing to
+      * its right .5π (90ª) and looking up .25π (45º), and we dragged the
+      * straight up on our plexiglass, we expect the model to fall to its
+      * right a little and turn to its right a little (i think).
+      * So in model coordinate terms, the model is floating in empty space
+      * always facing us, with its origin at 0,0, and three numbers for its
+      * current rotation amount.  We take our plexiglass and apply the
+      * opposite  rotation (Y:-0.5π and an X: -0.25π) to it. (-1 times the
+      * angles the model is rotated.)
+      * In floating model universe, the plexiglass swivels around to the
+      * model's left side (the right of the screen) and then tilts towards us
+      * 45º (this last one acutally feels like a z-rotation roll kind of
+      * movement to the plexiglass, but who cares.)
+      * We have our little floating marker mark on the plexiglass still.
+      * We want to treat the mark as a spherical vector.  We don't care
+      * where it started and ended, we just care what the angles of change
+      * are.  (3 dimensional rotations can be expressed with angles in only
+      * two of the dimensions so we will get rotation around 2 of them.)
+      * If we have a 3d point we can get its angle to the origin 0,0,0
+      * with a magic trig formula (thanks a million tbuehlmann!)
+      * If we do this to both points, we can take the difference of each
+      * of their 2 angles to get the rotation that we want to pass
+      * as a rotation request to the model.
+      * that we pass of as a rotation request to the model.  Whew, that was
+      * easy.  And you wonder why the trackball of your mouse always
+      * used to jam up.  (maybe that's why then stopped making them?)
       */
+      if ('down'!==this.mouseState) return false; // @todo false?
+      e.stopPropagation(); // don't highlight/select text @todo test browsers
+
       var m1 = this.m1;
       var m2 = this._mouseVector(e);
-      var plexiglassRotation = this.wireframe.currentAxisRotation.copy().
-        timesEquals([-1,-1,-1]);
-      var rotate = new Rotate(plexiglassRotation);
-      var m1v = new Vector([0,0,m1[2]]);
-      var m2v = new Vector([m2[0]-m1[0], m2[1]-m1[1], m1[2]]);
-      var m1vr = new Vector([null,null,null]);
-      var m2vr = new Vector([null,null,null]);
-      rotate.go(m1v, m1vr);
-      rotate.go(m2v, m2vr);
+      var m1norm = new Vector([0,0,m1[2]]);
+      var m2norm = new Vector([m2[0]-m1[0], m2[1]-m1[1], m2[2]]);
+      // m2[2] and m1[2] (z depth) are expected to always be the same.
+
+      var plexiglassRotation = new
+        Rotate(this.wireframe.currentAxisRotation.copy()).
+          timesEquals([-1,-1,-1]);
+
+      var dotOneRotated = plexiglassRotation.go(m1norm);
+      var dotTwoRotated = plexiglassRotation.go(m2norm);
+
+
       var it = [m1[2],m1[2],m1[2]];
       m1vr.dividedByEquals(it);
       m2vr.dividedByEquals(it);
 
 
-      //hipe: in 3D, I’d first project the vertex onto the XY-plane, and
-      // determine the angle between the line going through the origin and
-      //through the projected point, and the X axis
-      //hipe: if you call that point P', then you can determine the angle
-      //  between OP' and OP
-      // ddfreyne: hipe: that gives you two angles… one to orient yourself “on
-      // the ground” and another one to aim up/down
-      //07:09 ddfreyne: hipe: does that make sense?
-      //ddfreyne: hipe: since you’re working in a rectangular triangle,
-      //arctan(opposite/adjacent) where you have opposite (= z) and adjacent
-      //(= distance from P' to O, i.e. sqrt(xp**2 + yp**2))
-
-      //tbuehlmann: let v = (v_1, v_2, v_3) be the vector OP, so the angle
-      // between v and the XY plane is acos(|v_3|/sqrt(v_1^2 + v_2^2 + v_3^2))
       tbuelmannXY = function(v){
         return Math.acos( Math.abs(v[2]) /
           Math.sqrt(Math.pow(v[0],2) + Math.pow(v[1],2) + Math.pow(v[2],2))
@@ -798,8 +896,8 @@
   $.widget('ui.hipe_terd_lib',{
     _init:function(){},
     lib:function(){
-      return {Vector:Vector, Rotate: Rotate, list:list,
-        extend:extend
+      return { Vector:Vector, Rotate: Rotate, list:list,
+        extend:extend, Tbuehlmann: Tbuehlmann
       };
     }
   });
