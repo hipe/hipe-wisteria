@@ -14,7 +14,7 @@
           startEngine: 'when model is added'
         });
         $('#bb-1').hipe_terd_model({
-          initialRotationDelta: [0.0000, 0.05, 0.000],
+          initialRotationDelta: [-0.001, 0.01, 0.00],
           initialRotation: [0, 0, 0],
           debugCoordinates: false,
           rotatable: true,
@@ -127,6 +127,27 @@
   -->
   <div id="terd-scene-1" class='terd-scene'>
 
+<!-- some unicode
+x U+261C WHITE LEFT POINTING INDEX (a right hand)
+x U+261E  	WHITE RIGHT POINTING INDEX  (a left hand)
+x U+261D  	WHITE UP POINTING INDEX (a left hand)
+x U+261F  	WHITE DOWN POINTING INDEX (right hand)
+U+263C  	WHITE SUN WITH RAYS
+U+2654  	WHITE CHESS KING
+x U+2661  	WHITE HEART SUIT
+U+26A1  	HIGH VOLTAGE SIGN
+x U+270C  	VICTORY HAND ( a right hand)
+U+2740  	WHITE FLORETTE
+U+2F1F  	KANGXI RADICAL EARTH
+U+319E  	IDEOGRAPHIC ANNOTATION EARTH MARK
+U+328F  	CIRCLED IDEOGRAPH EARTH
+U+328A  	CIRCLED IDEOGRAPH MOON
+U+3290  	CIRCLED IDEOGRAPH SUN
+U+32A5  	CIRCLED IDEOGRAPH CENTRE
+U+32A6  	CIRCLED IDEOGRAPH LOW
+x U+2F9C  	KANGXI RADICAL FOOT
+-->
+
     <div class='bounding-box' id='bb-1'>
       <ul class='this-ul-is-actually-a-wireframe-model-of-a-three-dimensional-object'>
         <li class= 'back'  style='left: 0em; top: 0em; '>&#x263A;</li>
@@ -134,25 +155,25 @@
         <li class= 'back'  style='left: 2em; top: 0em; '>&#x263A;</li>
         <li class= 'back'  style='left: 0em; top: 1em; '>&#x263A;</li>
         <li class= 'back'  style='left: 2em; top: 1em; '>&#x263A;</li>
-        <li class= 'back'  style='left: 0em; top: 2em; '>&#x263A;</li>
-        <li class= 'back'  style='left: 1em; top: 2em; '>&#x263A;</li>
-        <li class= 'back'  style='left: 2em; top: 2em; '>&#x263A;</li>
+        <li class= 'back'  style='left: 0em; top: 2em; '>&#x2740;</li>
+        <li class= 'back'  style='left: 1em; top: 2em; '>&#x2740;</li>
+        <li class= 'back'  style='left: 2em; top: 2em; '>&#x2740;</li>
 
-        <li class='middle' style='left: 0em; top: 0em; '>&#x263A;</li>
+        <li class='middle' style='left: 0em; top: 0em; '>&#x270C;</li>
         <li class='middle' style='left: 2em; top: 0em; '>&#x263A;</li>
         <li class='middle center-of-rotation' style='left: 1em; top: 1em; '>
-          &#x263A;</li>
-        <li class='middle' style='left: 0em; top: 2em; '>&#x263A;</li>
-        <li class='middle' style='left: 2em; top: 2em; '>&#x263A;</li>
+          &#x2661;</li>
+        <li class='middle' style='left: 0em; top: 2em; '>&#x2740;</li>
+        <li class='middle' style='left: 2em; top: 2em; '>&#x2F9C;</li>
 
-        <li class='front'  style='left: 0em; top: 0em; '>&#x263A;</li>
+        <li class='front'  style='left: 0em; top: 0em; '>&#x270C;</li>
         <li class='front'  style='left: 1em; top: 0em; '>&#x263A;</li>
-        <li class='front'  style='left: 2em; top: 0em; '>&#x263A;</li>
-        <li class='front'  style='left: 0em; top: 1em; '>&#x263A;</li>
-        <li class='front'  style='left: 2em; top: 1em; '>&#x263A;</li>
-        <li class='front'  style='left: 0em; top: 2em; '>&#x263A;</li>
-        <li class='front'  style='left: 1em; top: 2em; '>&#x263A;</li>
-        <li class='front'  style='left: 2em; top: 2em; '>&#x263A;</li>
+        <li class='front'  style='left: 2em; top: 0em; '>&#x261D;</li>
+        <li class='front'  style='left: 0em; top: 1em; '>&#x261C;</li>
+        <li class='front'  style='left: 2em; top: 1em; '>&#x261E;</li>
+        <li class='front'  style='left: 0em; top: 2em; '>&#x261F;</li>
+        <li class='front'  style='left: 1em; top: 2em; '>&#x2740;</li>
+        <li class='front'  style='left: 2em; top: 2em; '>&#x2740;</li>
       </ul>
       <div class='listener position-listener'>
         last rotation request: <pre class='live-data'>..</pre>

@@ -1,17 +1,108 @@
 window.jQuery(document).ready(function($){
 
-  var puts = window.console ? window.console.log : function(m){};
-
-  module("3d transformations");
-
   //***** test support code
+  var X=0;Y=1;Z=2;
+  var puts = window.console ? window.console.log : function(m){};
   var lib;
   var notest = function(){};
+  var rc = null;
   var commonSetup = function(){
-    if (!lib) lib = $.ui.hipe_terd_lib.prototype.lib();
+    if (lib) return;
+    lib = $.ui.hipe_terd_lib.prototype.lib();
+    rc = lib.RotationController;
   };
   var tolerance = 1.23456789e-16;
+  var lighterTolerance = tolerance * 2;
 
+  test("load library",function(){
+    commonSetup();
+    ok(lib,'library loaded');
+  });
+
+  var angleOf = (function(){
+    var thing = {
+      tolerance: tolerance,
+      _evaluate: function(){
+        return lib.Angle._positiveFullCircleAngle([this.a,this.b],X,Y);
+      },
+      set:function(a,b){
+        this.a = a; this.b = b;
+        this.noun = "angle of ["+a+","+b+"]";
+      },
+      shouldBeExactly:function(num){
+        var rslt = this._evaluate();
+        ok(rslt===num,this.noun+" (which was "+rslt+") should be "+
+        "exactly "+num);
+      },
+      shouldBeBetweenExclusive:function(num1,num2){
+        var rslt = this._evaluate();
+        ok(rslt>num1&&rslt<num2,this.noun+
+          " (which was "+rslt+") should be between "+num1+
+          " and "+num2+" exclusive");
+      },
+      shouldBeBetweenInclusive:function(num1,num2){
+        var rslt = this._evaluate();
+        ok(rslt>=num1&&rslt<=num2,this.noun+
+          " (which was "+rslt+") should be between "+num1+
+          " and "+num2+" inclusive.");
+      },
+      shouldBeCloseTo:function(num){
+        var rslt = this._evaluate();
+        ok(Math.abs(num-rslt)<=tolerance,
+          this.noun+" (which was "+rslt+") should be close to "+num
+        );
+      },
+      shouldThrowException:function(type){
+        var msgs = [this.noun+' should throw exception'], _ok;
+        try {
+          this._evaluate();
+          msgs.push("didn't throw.");
+          _ok = false;
+        } catch(e) {
+          if (e.type!==type){
+            msgs.push(" (needed type '"+type+"' had "+e.type+")");
+            _ok = false;
+          } else {
+            _ok = true;
+            msgs.push(' (of type "'+type+'")');
+          }
+        }
+        ok(_ok,msgs.join(''));
+      }
+    };
+    return function(componentA,componentB){
+      thing.set(componentA,componentB);
+      return thing;
+    };
+  })();
+
+
+  //***** trig tests
+  module("trig basics");
+  test("360 degree angles of points", function(){
+    commonSetup();
+    angleOf(0,0).shouldThrowException('angleUndefined');
+    angleOf(1,0).shouldBeExactly(0);
+    angleOf(1e26,0).shouldBeExactly(0);
+    angleOf(1e26,1e-26).shouldBeBetweenInclusive(0,0.00001);
+    angleOf(1,1).shouldBeCloseTo(Math.PI/4);
+    angleOf(1e-26,1e26).shouldBeCloseTo(Math.PI/2);
+    angleOf(0,1).shouldBeCloseTo(Math.PI/2);
+    angleOf(-1e-26, 1e26).shouldBeCloseTo(Math.PI/2);
+    angleOf(-1e-26, 1e26).shouldBeCloseTo(Math.PI/2);
+    angleOf(-1,1).shouldBeCloseTo(3 * Math.PI / 4);
+    angleOf(-1e26,1e-26).shouldBeCloseTo(Math.PI);
+    angleOf(-1e26,-1e-26).shouldBeCloseTo(Math.PI);
+    angleOf(-1,-1).shouldBeCloseTo(5 * Math.PI / 4);
+    angleOf(-1e-26,-1e26).shouldBeCloseTo(3 * Math.PI / 2);
+    angleOf(0,-1).shouldBeCloseTo(3 * Math.PI / 2);
+    angleOf(1e-26,-1e26).shouldBeCloseTo(3 * Math.PI / 2);
+    angleOf(1,-1).shouldBeCloseTo(7 * Math.PI/4);
+    angleOf(1e26,-1e-26).shouldBeExactly(2*Math.PI); //!
+  });
+
+
+  //***** more test support code
   AngleAsserter = function(){};
   AngleAsserter.prototype = {
     angleOf: function(pt){
@@ -52,40 +143,77 @@ window.jQuery(document).ready(function($){
 
   //***** tests
 
-  test("load library",function(){
-    commonSetup();
-    ok(lib,'library loaded');
-  });
+  module("3d transformations");
+
 
   test("dot", function(){
+    commonSetup();
     var dot = [-45.25483399593904, 0, -45.254833995939045];
-    var yz = lib.Angle.yz(dot);
-    var xy = lib.Angle.xy(dot);
+    var zy = lib.Angle.zy(dot);
     var xz = lib.Angle.xz(dot);
-    var target = new lib.Vector([0,0.7853981633974484,0]);
-    ok(target.distance([yz,xz,xy]) < tolerance);
+    var xy = lib.Angle.xy(dot);
+    var target = new lib.Vector([Math.PI, Math.PI * 5 / 4, Math.PI]);
+    ok(target.distance([zy,xz,xy]) < tolerance);
   });
 
-  test("mouse drag rotation 1: left field", function(){
+  module("3d transformations - rotation quarantines");
+
+  var _rotationOk = function(currentAxisRotation,m1,m2,rot,target){
+    lib.extend(m1,lib.Vector.prototype);
+    lib.extend(m2,lib.Vector.prototype);
+    lib.extend(target, lib.Vector.prototype);
+    var distance = rot.distance(target);
+    var passed = distance <= lighterTolerance;
+    var explainTolerance = (passed) ?
+      (  " It came within "+ (distance/lighterTolerance*10).toFixed(2) +
+         "% of tolerance from it: "+rot.inspect()
+      ) : ( " It was "+distance+" away from target.");
+    ok(passed,"the rotation angle derived from"+
+      " m1:"+m1.inspect()+
+      " to m2: "+m2.inspect()+" should be close to "+target.inspect()+
+      explainTolerance);
+  };
+
+  test("1: left field", function(){
     var currentAxisRotation = [0, Math.PI/4, 0];
     var m1 = [23, -7, -64];
     var m2 = [23, -9, -64];
-    var rot = lib.RotationController.getRotationDeltaFromMouseMove(
-      currentAxisRotation, m1, m2
-    );
-    ok(rot.distance([0.044165435246087036,0,0.04416543524608704])<tolerance);
+    var rot = rc.mouseMoveRotationDelta(currentAxisRotation, m1, m2);
+    var target = [0.044165435246087036,0,0.04416543524608704];
+    _rotationOk(currentAxisRotation,m1,m2,rot,target);
   });
 
   /** this one is why we invented the hack.  @todo we need some serious trig*/
-  test("mouse drag rotation 2: right baseline", function(){
+  test("2: right baseline", function(){
     var currentAxisRotation = [0, 1.5500000000000012, 0];
     var m1 = [641, 255, 64];
     var m2 = [641, 254, 64];
-    var rot = lib.RotationController.getRotationDeltaFromMouseMove(
-      currentAxisRotation, m1, m2
-    );
-    ok(rot.distance([0, 0, -0.01562710721073918]) < tolerance);
+    var rot = rc.mouseMoveRotationDelta(currentAxisRotation, m1, m2);
+    var target = [0, 0, -0.01562710721073918];
+    _rotationOk(currentAxisRotation,m1,m2,rot,target);
   });
+
+  test("3: flipping bug", function(){
+    var quarantine = {
+      "type": "mousemove",
+      "input": {
+        "car": [1.55229751262094, 9.18302456564444, 8.8544797849314],
+        "m1": [650, 238, 64],
+        "m2": [650, 237, 64]
+      },
+      "rotationRequest": {
+        "rotationDelta": [3.1293872643274137, 0, 3.1318385978280823]
+      }
+    };
+    var arg = quarantine.input;
+    var rot = rc.mouseMoveRotationDelta(arg.car, arg.m1, arg.m2);
+    var newTarget = [-0.014787800232809012, 0, -0.005043177996755688];
+    _rotationOk(arg.car,arg.m1,arg.m2,rot,newTarget);
+  });
+
+
+  module("3d transformations");
+
 
   test("angles off of planes", function(){
     commonSetup();
@@ -105,7 +233,7 @@ window.jQuery(document).ready(function($){
     assert.angleOf([0,1,0] ).onPlane('xy').using(planes).shouldBeCloseTo(0);
     assert.angleOf([0,1,0] ).onPlane('xy').using(vector).shouldBeCloseTo(0);
     assert.angleOf([0,1,0] ).onPlane('xy').using(polar).shouldBeCloseTo(0);
-    assert.angleOf([0,1,0] ).onPlane('xy').using(atan).shouldBeCloseTo(0);
+    assert.angleOf([0,1,0] ).onPlane('xy').using(atan).shouldBeCloseTo(-hp);
 
     assert.angleOf([1,0,0] ).onPlane('xy').using(planes).shouldBeCloseTo(0);
     assert.angleOf([1,0,0] ).onPlane('xy').using(vector).shouldBeCloseTo(0);
@@ -115,7 +243,7 @@ window.jQuery(document).ready(function($){
     assert.angleOf([0,-1,0]).onPlane('xy').using(planes).shouldBeCloseTo(0);
     assert.angleOf([0,-1,0]).onPlane('xy').using(vector).shouldBeCloseTo(0);
     assert.angleOf([0,-1,0] ).onPlane('xy').using(polar).shouldBeCloseTo(0);
-    assert.angleOf([0,-1,0] ).onPlane('xy').using(atan).shouldBeCloseTo(0);
+    assert.angleOf([0,-1,0] ).onPlane('xy').using(atan).shouldBeCloseTo(-hp);
 
     assert.angleOf([-1,0,0]).onPlane('xy').using(planes).shouldBeCloseTo(0);
     assert.angleOf([-1,0,0]).onPlane('xy').using(vector).shouldBeCloseTo(0);
@@ -159,44 +287,44 @@ window.jQuery(document).ready(function($){
     assert.angleOf([0,0,-1]).onPlane('xz').using(planes).shouldBeCloseTo(0);
     assert.angleOf([0,0,-1]).onPlane('xz').using(vector).shouldBeCloseTo(0);
     assert.angleOf([0,0,-1]).onPlane('xz').using(polar).shouldBeCloseTo(0);
-    assert.angleOf([0,0,-1]).onPlane('xz').using(atan).shouldBeCloseTo(0);
+    assert.angleOf([0,0,-1]).onPlane('xz').using(atan).shouldBeCloseTo(-hp);
 
     assert.angleOf([0,0,1] ).onPlane('xz').using(planes).shouldBeCloseTo(0);
     assert.angleOf([0,0,1] ).onPlane('xz').using(vector).shouldBeCloseTo(0);
     assert.angleOf([0,0,1] ).onPlane('xz').using(polar).shouldBeCloseTo(0);
-    assert.angleOf([0,0,1] ).onPlane('xz').using(atan).shouldBeCloseTo(0);
+    assert.angleOf([0,0,1] ).onPlane('xz').using(atan).shouldBeCloseTo(-hp);
 
 
     // yz
     assert.angleOf([1,0,0] ).onPlane('yz').using(planes).shouldBeCloseTo(hp);
     assert.angleOf([1,0,0] ).onPlane('yz').using(vector).shouldBeCloseTo(hp);
     assert.angleOf([1,0,0] ).onPlane('yz').using(polar).shouldBeCloseTo(hp);
-    assert.angleOf([1,0,0] ).onPlane('yz').using(atan).shouldThrow(exception);
+    assert.angleOf([1,0,0] ).onPlane('zy').using(atan).shouldThrow(exception);
 
     assert.angleOf([0,1,0] ).onPlane('yz').using(planes).shouldBeCloseTo(0);
     assert.angleOf([0,1,0] ).onPlane('yz').using(vector).shouldBeCloseTo(0);
     assert.angleOf([0,1,0] ).onPlane('yz').using(polar).shouldBeCloseTo(0);
-    assert.angleOf([0,1,0] ).onPlane('yz').using(atan).shouldBeCloseTo(0);
+    assert.angleOf([0,1,0] ).onPlane('zy').using(atan).shouldBeCloseTo(-hp);
 
     assert.angleOf([-1,0,0]).onPlane('yz').using(planes).shouldBeCloseTo(-hp);
     assert.angleOf([-1,0,0]).onPlane('yz').using(vector).shouldBeCloseTo(hp);
     assert.angleOf([-1,0,0]).onPlane('yz').using(polar).shouldBeCloseTo(-hp);
-    assert.angleOf([-1,0,0]).onPlane('yz').using(atan).shouldThrow(exception);
+    assert.angleOf([-1,0,0]).onPlane('zy').using(atan).shouldThrow(exception);
 
     assert.angleOf([0,-1,0]).onPlane('yz').using(planes).shouldBeCloseTo(0);
     assert.angleOf([0,-1,0]).onPlane('yz').using(vector).shouldBeCloseTo(0);
     assert.angleOf([0,-1,0]).onPlane('yz').using(polar).shouldBeCloseTo(0);
-    assert.angleOf([0,-1,0]).onPlane('yz').using(atan).shouldBeCloseTo(0);
+    assert.angleOf([0,-1,0]).onPlane('zy').using(atan).shouldBeCloseTo(-hp);
 
     assert.angleOf([0,0,1] ).onPlane('yz').using(planes).shouldBeCloseTo(0);
     assert.angleOf([0,0,1] ).onPlane('yz').using(vector).shouldBeCloseTo(0);
     assert.angleOf([0,0,1] ).onPlane('yz').using(polar).shouldBeCloseTo(0);
-    assert.angleOf([0,0,1] ).onPlane('yz').using(atan).shouldBeCloseTo(0);
+    assert.angleOf([0,0,1] ).onPlane('zy').using(atan).shouldBeCloseTo(0);
 
     assert.angleOf([0,0,-1]).onPlane('yz').using(planes).shouldBeCloseTo(0);
     assert.angleOf([0,0,-1]).onPlane('yz').using(vector).shouldBeCloseTo(0);
     assert.angleOf([0,0,-1]).onPlane('yz').using(polar).shouldBeCloseTo(0);
-    assert.angleOf([0,0,-1]).onPlane('yz').using(atan).shouldBeCloseTo(0);
+    assert.angleOf([0,0,-1]).onPlane('zy').using(atan).shouldBeCloseTo(0);
 
   });
 

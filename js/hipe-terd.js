@@ -120,7 +120,7 @@
     map: function(f){
       var res = new Vector(new Array(this.length));
       for(var i=this.length-1; i>=0; i--){
-        res[i] = f(this[i]);
+        res[i] = f(this[i],i);
       }
       return res;
     },
@@ -241,36 +241,88 @@
   * Get the angle that a 3d point makes from 0,0,0 to it on one of the planes.
   */
   var Angle = {
-    xyPlaneAngleUsingAtan: function(pt){ return this._atan(pt, Y, X); },
-    yzPlaneAngleUsingAtan: function(pt){ return this._atan(pt, Y, Z); },
-    xzPlaneAngleUsingAtan: function(pt){ return this._atan(pt, Z, X); },
-    _atan: function(pt,oppIdx,adjIdx){
+    twoPi:  Math.PI*2,
+    halfPi: Math.PI/2,
+    negativeHalfPi: -(Math.PI/2),
+    xyPlaneAngleUsingAtan: function(pt){ return this._atan(pt, X, Y); },
+    zyPlaneAngleUsingAtan: function(pt){ return this._atan(pt, Z, Y); },
+    xzPlaneAngleUsingAtan: function(pt){ return this._atan(pt, X, Z); },
+    /**
+    * return an angle between -PI/2 inclusive and  +PI/2 exclusive
+    * the signs of the component values influence the sign of the returned
+    * angle, with positive angles coming from quadrants I and III etc.
+    * Throws an exception for [0,0].  This is the only point on the
+    * cartesian plane where it doesn't make sense to ask for this angle.
+    * ''note 1'':
+    * each of the four points on the unit circle that has a zero value for
+    * one of the components is considered (arbitrarily) as falling
+    * in a certain one of each of the four quadrants (starting with [1,0]
+    * falling in quadrant I and so on counter clockwise.)  Of the two
+    * of these cases that don't return a zero angle, the sign of the angle
+    * should match the sign of the other angles returned by these quadrants
+    * (negative for II and IV) So note that the angle for [0,1], which looks
+    * like it is "straight up" is actually the first negative angle you see
+    * when going counter clockwise. (it should bew be -PI/2.) "straight left"
+    * should be zero, being considered the start point of the third quadrant
+    * and "straight down" should be -PI/2, being the start point of the
+    * fourth.  Note also that this whole class is ignorant of whether axes
+    * like Y and Z increase or decrease when going up/down or towards/away.
+    */
+    _atan: function(pt,adjIdx,oppIdx){
       if (pt[adjIdx]===0){
         if (pt[oppIdx]===0) {
           var e = new Error("angle undefined for "+xyz[oppIdx]+":0"+
             xyz[adjIdx]+":0 ");
           e.type = 'angleUndefined';
           throw e;
+        } else {
+          return this.negativeHalfPi; // see ''note 1''
         }
-        return 0.0;
+      } else {
+        return Math.atan(pt[oppIdx]/pt[adjIdx]);
       }
-      return Math.atan(pt[oppIdx]/pt[adjIdx]);
     },
-    /*
-    * return a new vector whose each component is the point's angle of
-    * rotation around that corresponding axis off the relevant plane.
-    */
-    vector: function(pt){
+    // @see _angle
+    vector: function(ptA, ptB){
       return new Vector([
-        this.yzPlaneAngleUsingAtan(pt),
-        this.xzPlaneAngleUsingAtan(pt),
-        this.xyPlaneAngleUsingAtan(pt)
+        this._angle(ptA, ptB, Z, Y),
+        this._angle(ptA, ptB, X, Z),
+        this._angle(ptA, ptB, X, Y)
       ]);
+    },
+    /**
+    * return the minimum number of radians to add or remove
+    * to the radius line segment formed from 0,0 to ptA to get the
+    * corresponding line segment of ptB on the indicated plane.
+    * results should be between -PI and PI inclusive
+    */
+    _angle:function(ptA, ptB, adjIdx, oppIdx){
+      var angleA = this._positiveFullCircleAngle(ptA, adjIdx, oppIdx);
+      var angleB = this._positiveFullCircleAngle(ptB, adjIdx, oppIdx);
+      var absDist = Math.abs(angleA - angleB);
+      var rslt, raw;
+      if (absDist <= Math.PI) {
+        rslt = angleB - angleA;
+      } else {
+        raw = Math.min(angleA,angleB) + this.twoPi-Math.max(angleA,angleB);
+        rslt = angleB > angleA ? -raw : raw;
+      }
+      return rslt;
+    },
+    // get the positive angle between zero and 2 pi exclusive. see ''note 1''
+    _positiveFullCircleAngle: function(pt,adjIdx,oppIdx){
+      var atan = this._atan(pt,adjIdx,oppIdx);
+      // zero is the inclusive negative boundary
+      var firstTermPositive =  (pt[adjIdx]===0 ? pt[oppIdx]<0 : pt[adjIdx]>0);
+      var secondTermPositive = (pt[oppIdx]===0 ? pt[adjIdx]>0 : pt[oppIdx]>0);
+      return firstTermPositive ?
+        ( secondTermPositive ? atan : ( this.twoPi+atan ) ) :
+        ( Math.PI + atan );
     }
   };
-  Angle.xy = Angle.xyPlaneAngleUsingAtan;
-  Angle.yz = Angle.yzPlaneAngleUsingAtan;
-  Angle.xz = Angle.xzPlaneAngleUsingAtan;
+  Angle.xy = function(pt){ return Angle._positiveFullCircleAngle(pt,X,Y); };
+  Angle.zy = function(pt){ return Angle._positiveFullCircleAngle(pt,Z,Y); };
+  Angle.xz = function(pt){ return Angle._positiveFullCircleAngle(pt,X,Z); };
 
 
   // ****** debugging support *******************
@@ -628,7 +680,7 @@
       if (m2.equals(m1)) return false;
       var car = this.wireframe.currentAxisRotation;
       var angleVectorVector =
-        RotationController.getRotationDeltaFromMouseMove(car,m1,m2);
+        RotationController.mouseMoveRotationDelta(car,m1,m2);
       var rotationRequest = {
         requester: this,
         rotationDelta:angleVectorVector,
@@ -661,7 +713,7 @@
     }
   };
 
-  RotationController.getRotationDeltaFromMouseMove = function(
+  RotationController.mouseMoveRotationDelta = function(
     currentAxisRotation, m1, m2
   ){
     var m1norm = new Vector([0,0,m1[Z]]);
@@ -671,17 +723,17 @@
       timesEquals([-1,-1,-1]);
     var dotOneRotated = plexiglassRotation.go(m1norm);
     var dotTwoRotated = plexiglassRotation.go(m2norm);
-    var angleVectorOne = Angle.vector(dotOneRotated);
-    var angleVectorTwo = Angle.vector(dotTwoRotated);
-    var v = angleVectorTwo.copy().minusEquals(angleVectorOne);
+    var v = Angle.vector(dotOneRotated, dotTwoRotated);
     // a hack: we get bad results when points are close to origin
     // we probably shouldn't be returning three angles.
     // for now we zeroify the outlier unless the other two are zero @todo
     var s = v.sortedIndexes(function(a,b){
-      return Math.abs(a) < Math.abs(b) ? -1 : 1;
+      return Math.abs(a) < Math.abs(b) ? -1 : 1; // small to big
     });
     if (!(0==v[s[0]] && 0==v[s[1]])) {
-      var eraseme = Math.abs(v[s[0]]-v[s[1]]) > Math.abs(v[s[1]]-v[s[2]]) ?
+      var eraseme =
+        (Math.abs(v[s[1]])-Math.abs(v[s[0]])) >
+        (Math.abs(v[s[2]])-Math.abs(v[s[1]])) ?
         s[0] : s[2];
       v[eraseme] = 0.0;
     }
@@ -703,7 +755,7 @@
     init:function(sc, model, opts){
       AbstractWireframe.prototype.init.call(this, sc, model, opts);
         // a parse object has state but we don't keep it:
-      new CssWireframe.Parse(this, opts.ul, opts.li);
+      new CssWireframe.Parse(this, opts, opts.ul, opts.li);
       this._initScreenPoints();
     },
     makeEmptyScreenPoint: function(innatePt, idx){
@@ -720,8 +772,8 @@
         var sp = wireframe.screenPoints[pt.idx];
         wireframe.sceneController.addFipsListener(function(_){
           if (!pt.showCoords) return;
-          var s = "innate: ["+pt.idx+"] x:"+pt[0]+" y:"+pt[1]+"\n"+
-                  "screen: x:"+sp[0].toFixed(2)+
+          var s = "innate: ["+pt.idx+"] x:"+pt[X]+" y:"+pt[Y]+" z:"+pt[Z]+
+                  "\nscreen: x:"+sp[0].toFixed(2)+
                   "y:"+sp[1].toFixed(2)+" sf:"+sp.scaleFactor.toFixed(2);
           el.html(s);
         });
@@ -732,10 +784,9 @@
     });
   };
 
-  CssWireframe.Parse = function(wireframe, ul, li){
+  CssWireframe.Parse = function(wireframe, opts, ul, li){
     this.wireframe = wireframe;
-    this.doDebugCoordinates =
-      wireframe.sceneController.options.debugCoordinates;
+    this.doDebugCoordinates = opts.debugCoordinates;
     this.parseIn(ul, li);
   };
 
