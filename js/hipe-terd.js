@@ -43,7 +43,7 @@
 *
 *  I didn't anticipate that getting shapes to rotate with a mouse would
 *  be more difficult than rendering them in the first place (by a factor
-*  of about three and counting..).  I owe special thank you's to
+*  of about five and counting..).  I owe special thank you's to
 *  ddfreyne and Tobias Bühlmann for exposing me to the kinds of
 *  trig that would be necessary for this, and to Tobias
 *  for even benchmarking three possible solutions for me.
@@ -432,6 +432,7 @@
       this._afterRun = [];
       this.state = 'ready';
       this.posListeners = null;
+      this.getsPulse = false;
       this.rotateTransform = new Rotate(new Array(3));
       this.rotateTransform.setFocalLength(
         this.sceneController.getCamera().getFocalLength()
@@ -445,8 +446,17 @@
       });
     },
     addPositionListener:function(f){
-      if (!this.posListeners) this.posListeners = [];
+      if (!this.posListeners){
+        this.posListeners = [];
+        if (!this.getsPulse) {
+          this.sceneController.addPulseListener(this);
+          this.getsPulse;
+        }
+      }
       this.posListeners.push(f);
+    },
+    pulseNotify: function(){
+      if (this.posListeners) this._notifyPositionListeners();
     },
     _notifyPositionListeners: function(){
       var rot = this.currentAxisRotation;
@@ -521,10 +531,12 @@
         opts.cameraFocalLength
       );
       this.fipsListeners = null;
-      if (opts.fipsListener) this._goFipsListener(opts);
-      this.updateFipsEvery = 2000;
+      this.pulseListeners = null;
+      this.addedSelfAsPulseListener = false;
+      if (opts.fipsListener) this._initFipsListener(opts);
+      this.heartrate = 2000;
     },
-    _goFipsListener: function(opts){
+    _initFipsListener: function(opts){
       var els = opts.fipsListener;
       this.addFipsListener(function(fpsData){
         var s = 'actual fps: '+fpsData.actualFps.toFixed(1)+' '+
@@ -536,6 +548,14 @@
     addFipsListener: function(f){
       if (!this.fipsListeners) this.fipsListeners = [];
       this.fipsListeners.push(f);
+      if (!this.addedSelfAsPulseListener) {
+        this.addPulseListener(this);
+        this.addedSelfAsPulseListener = true;
+      }
+    },
+    addPulseListener: function(l){
+      if (!this.pulseListeners) this.pulseListeners = [];
+      this.pulseListeners.push(l);
     },
     addModel:function(model){
       this.push(model.getWireframe());
@@ -545,7 +565,7 @@
     },
     getCamera: function(){ return this.camera; },
     run: function(){
-      if (this.fipsListeners) this.timeOfLastFipsUpdate = 0;
+      if (this.fipsListeners) this.lastPulseAt = 0;
       this.each(function(wireframe){wireframe.beforeRunNotify();});
       this.state = 'running';
       this._renderThisFrameAndTheNextFrame();
@@ -563,13 +583,24 @@
     _debuggingMessage: function(msg){
       puts(msg);
     },
-    _updateFipsListeners: function(now, overhead, sleepFor){
-      this.timeOfLastFipsUpdate = now;
+    _pulse: function(now,overhead,sleepFor){
+      this.lastPulseAt = now;
+      var pulseData = {now:now, overhead:overhead, sleepFor:sleepFor};
+      var list = this.pulseListeners;
+      var i = 0, length = list.length, listener;
+			for ( listener = list[0];
+			  i < length && (listener.pulseNotify(pulseData)||1);
+			  listener = list[++i] ) {}
+    },
+    pulseNotify: function(pulseData){
+      if (this.fipsListeners) this._updateFipsListeners(pulseData);
+    },
+    _updateFipsListeners: function(data){
       var fipsData = {
-        potentialFps: 1000 / overhead,
-        actualFps: 1000 / (sleepFor + overhead),
+        potentialFps: 1000 / data.overhead,
+        actualFps: 1000 / (data.sleepFor + data.overhead),
         targetFps: this.targetFps,
-        percentCapacity: 100 * (overhead / this.targetMsecPerFrame)
+        percentCapacity: 100 * (data.overhead / this.targetMsecPerFrame)
       };
       for (var i=this.fipsListeners.length-1; i>=0; i--){
         this.fipsListeners[i](fipsData);
@@ -584,9 +615,9 @@
       var t2 = (new Date().getTime());
       var overhead =  t2 - t1;
       var sleepFor = Math.max(0, this.targetMsecPerFrame - overhead);
-      if (this.fipsListeners &&
-          t2 - this.timeOfLastFipsUpdate > this.updateFipsEvery)
-            this._updateFipsListeners(t2, overhead, sleepFor);
+      if (this.pulseListeners && t2-this.lastPulseAt>this.heartrate) {
+        this._pulse(t2, overhead, sleepFor);
+      }
       if (this.state == 'running') {
         var me = this;
         setTimeout(
@@ -629,6 +660,7 @@
   };
   RotationController.prototype = {
     isRotationController:true,
+    minDragDistanceThreshold: 1,
     _init:function(model, opts){
       this.bb = model.element; // bounding box
       this.wireframe = model.wireframe;
@@ -677,7 +709,8 @@
       e.stopPropagation(); // don't highlight/select text @todo test browsers
       var m1 = this.m1;
       var m2 = this._mouseVector(e);
-      if (m2.equals(m1)) return false;
+      var dist = m1.distance(m2);
+      if (dist < this.minDragDistanceThreshold) return false;
       var car = this.wireframe.currentAxisRotation;
       var angleVectorVector =
         RotationController.mouseMoveRotationDelta(car,m1,m2);
@@ -726,18 +759,23 @@
     var v = Angle.vector(dotOneRotated, dotTwoRotated);
     // a hack: we get bad results when points are close to origin
     // we probably shouldn't be returning three angles.
-    // for now we zeroify the outlier unless the other two are zero @todo
-    var s = v.sortedIndexes(function(a,b){
+    // unless the two shortest angles are zero, do this:
+    // if an outlier is more than twice as far away of an angle
+    // than the other difference, zeroify it else zeroify
+    // the least significant angle.  @todo
+    var eraseme, s = v.sortedIndexes(function(a,b){
       return Math.abs(a) < Math.abs(b) ? -1 : 1; // small to big
     });
     if (!(0==v[s[0]] && 0==v[s[1]])) {
-      var eraseme =
-        (Math.abs(v[s[1]])-Math.abs(v[s[0]])) >
-        (Math.abs(v[s[2]])-Math.abs(v[s[1]])) ?
-        s[0] : s[2];
+      var diffA = Math.abs(v[s[1]])-Math.abs(v[s[0]]);
+      var diffB = Math.abs(v[s[2]])-Math.abs(v[s[1]]);
+      if (Math.abs(diffA-diffB) > 2*Math.min(diffA,diffB)) {
+        eraseme = diffA > diffB ? s[0] : s[2];
+      } else {
+        eraseme = s[0];
+      }
       v[eraseme] = 0.0;
     }
-    // pos rotation is down, left, clockwise
     return v;
   };
 

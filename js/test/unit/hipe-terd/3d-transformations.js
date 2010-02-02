@@ -11,8 +11,9 @@ window.jQuery(document).ready(function($){
     lib = $.ui.hipe_terd_lib.prototype.lib();
     rc = lib.RotationController;
   };
-  var tolerance = 1.23456789e-16;
-  var lighterTolerance = tolerance * 2;
+  var strictTolerance = 1.23456789e-16;
+  var trigTolerance = 6.123456789e-16;
+  var rotationTolerance = strictTolerance * 2;
 
   test("load library",function(){
     commonSetup();
@@ -21,7 +22,7 @@ window.jQuery(document).ready(function($){
 
   var angleOf = (function(){
     var thing = {
-      tolerance: tolerance,
+      tolerance: strictTolerance,
       _evaluate: function(){
         return lib.Angle._positiveFullCircleAngle([this.a,this.b],X,Y);
       },
@@ -48,7 +49,7 @@ window.jQuery(document).ready(function($){
       },
       shouldBeCloseTo:function(num){
         var rslt = this._evaluate();
-        ok(Math.abs(num-rslt)<=tolerance,
+        ok(Math.abs(num-rslt)<=this.tolerance,
           this.noun+" (which was "+rslt+") should be close to "+num
         );
       },
@@ -153,7 +154,7 @@ window.jQuery(document).ready(function($){
     var xz = lib.Angle.xz(dot);
     var xy = lib.Angle.xy(dot);
     var target = new lib.Vector([Math.PI, Math.PI * 5 / 4, Math.PI]);
-    ok(target.distance([zy,xz,xy]) < tolerance);
+    ok(target.distance([zy,xz,xy]) < rotationTolerance);
   });
 
   module("3d transformations - rotation quarantines");
@@ -163,9 +164,9 @@ window.jQuery(document).ready(function($){
     lib.extend(m2,lib.Vector.prototype);
     lib.extend(target, lib.Vector.prototype);
     var distance = rot.distance(target);
-    var passed = distance <= lighterTolerance;
+    var passed = distance <= rotationTolerance;
     var explainTolerance = (passed) ?
-      (  " It came within "+ (distance/lighterTolerance*10).toFixed(2) +
+      (  " It came within "+ (distance/rotationTolerance*10).toFixed(2) +
          "% of tolerance from it: "+rot.inspect()
       ) : ( " It was "+distance+" away from target.");
     ok(passed,"the rotation angle derived from"+
@@ -211,6 +212,43 @@ window.jQuery(document).ready(function($){
     _rotationOk(arg.car,arg.m1,arg.m2,rot,newTarget);
   });
 
+  test("4: want down went left - was zeroing out the wrong one", function(){
+    var quarantine = {
+      "type": "mousemove",
+      "input": {
+        "car": [-0.71837206955452, 2.4703975768893387, -0.7253311178439458],
+        "m1": [646, 253, 64],
+        "m2": [646, 254, 64]
+      },
+      "rotationRequest": {
+        "rotationDelta": [0.01492557879990497, -0.014098807493958532, 0]
+      }
+    };
+    var arg = quarantine.input;
+    var rot = rc.mouseMoveRotationDelta(arg.car, arg.m1, arg.m2);
+    var newTarget = [0, -0.013908924670741563, 0.019338714493092324];
+    _rotationOk(arg.car,arg.m1,arg.m2,rot,newTarget);
+  });
+
+
+  notest("5: i wanted left you rotated all dumbly", function(){
+    var quarantine = {
+      "type": "mousemove",
+      "input": {
+        "car": [-0.0800346745908144, 1.4042223100187448, 0.07396076984363491],
+        "m1": [681, 243, 64],
+        "m2": [680, 243, 64]
+      },
+      "rotationRequest": {
+        "rotationDelta": [-0.00184538628525234, 0, 0.0034097778217507257]
+      }
+    };
+    var arg = quarantine.input;
+    var rot = rc.mouseMoveRotationDelta(arg.car, arg.m1, arg.m2);
+    var newTarget = [0, -0.01, 0];
+    _rotationOk(arg.car,arg.m1,arg.m2,rot,newTarget);
+  });
+
 
   module("3d transformations");
 
@@ -219,7 +257,7 @@ window.jQuery(document).ready(function($){
     commonSetup();
     loadAlternateAlgosForAngle();
     var assert = new AngleAsserter();
-    assert.tolerance = tolerance;
+    assert.tolerance = trigTolerance;
     var planes = 'PlaneAndVector';
     var vector = 'VectorVector';
     var polar = 'Polar';
@@ -334,17 +372,16 @@ window.jQuery(document).ready(function($){
     var rotv = new lib.Vector.fill(3);
     var rotTrans = new lib.Rotate();
     var pt1 = new lib.Vector.fill(3);
-    var tolerance = 6.123456789e-16;
     var _assert = function(start, rotate, target, msg){
       if (!target.isVector) lib.extend(target,lib.Vector.prototype);
       var rotatedPt = rotTrans.set(rotate).go(pt1.set(start));
       var dist = rotatedPt.distance(target);
       var _msg = msg ? (msg+': ') : '';
-      ok(Math.abs(dist)<=tolerance, _msg +
+      ok(Math.abs(dist)<=trigTolerance, _msg +
         "pt "+pt1.inspect()+" rotated by "+rotTrans.inspect()+
         " is "+rotatedPt.inspect()+". Target is "+target.inspect()+". "+
         " Distance to target: "+dist+". distance over tolerance: "+
-        (dist-tolerance));
+        (dist-trigTolerance));
       return dist;
     };
     var asserts = [

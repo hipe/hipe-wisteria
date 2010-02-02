@@ -14,7 +14,8 @@
           startEngine: 'when model is added'
         });
         $('#bb-1').hipe_terd_model({
-          initialRotationDelta: [-0.001, 0.01, 0.00],
+          // 1 degree = 0.01745.. radians
+          initialRotationDelta: [0.00, 0.03, 0.00],
           initialRotation: [0, 0, 0],
           debugCoordinates: false,
           rotatable: true,
@@ -97,6 +98,7 @@
       position: absolute;
       bottom: 0em;
       right: 0em;
+      font-family: "Andale Mono", monospace;
     }
     .data-view-centering-wrap{
       float:left;
@@ -176,7 +178,7 @@ x U+2F9C  	KANGXI RADICAL FOOT
         <li class='front'  style='left: 2em; top: 2em; '>&#x2740;</li>
       </ul>
       <div class='listener position-listener'>
-        last rotation request: <pre class='live-data'>..</pre>
+        <pre class='live-data'>..</pre>
       </div>
     </div>
 
