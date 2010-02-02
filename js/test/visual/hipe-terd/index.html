@@ -10,12 +10,15 @@
       $(document).ready(function() {
         $('.terd-scene').hipe_terd_scene({
           maxFps: 6,
-          initialRotationDelta: [0.001, 0.05, 0.000],
           cameraFocalLength: 400,
-          startRunningAnimationRightAway: 1
+          startEngine: 'when model is added'
         });
-
-        $('#bb-1').hipe_terd_object();
+        $('#bb-1').hipe_terd_model({
+          initialRotationDelta: [0.0000, 0.05, 0.000],
+          initialRotation: [0, 0, 0],
+          debugCoordinates: false,
+          rotatable: true
+        });
       });
      //]]>
    </script>
@@ -57,6 +60,15 @@
     .terd-scene ul li {
       position: absolute;
     }
+    .terd-scene ul li .coordinates {
+      border: 2px solid gray;
+      background-color: #69c;
+      color: #000;
+      font-size: 10px;
+      opacity: 100% !important;
+      position: relative;
+      top: -68px;
+    }
     .terd-scene ul li.back {
       font-size: 80%;
       opacity: 0.1;
@@ -80,7 +92,7 @@
       float: right;
       font-size: 0.20em;
     }
-    .terd-scene .bounding-box .state-listener {
+    .terd-scene .bounding-box .position-listener {
       position: absolute;
       bottom: 0em;
       right: 0em;
@@ -90,7 +102,7 @@
 <body>
   <div id="terd-scene-1" class='terd-scene'>
 
-    <div class='spinnable bounding-box' id='bb-1'>
+    <div class='bounding-box' id='bb-1'>
       <ul class='this-ul-is-actually-a-wireframe-model-of-a-three-dimensional-object'>
         <li class= 'back'  style='left: 0em; top: 0em; '>&#x263A;</li>
         <li class= 'back'  style='left: 1em; top: 0em; '>&#x263A;</li>
@@ -117,7 +129,7 @@
         <li class='front'  style='left: 1em; top: 2em; '>&#x263A;</li>
         <li class='front'  style='left: 2em; top: 2em; '>&#x263A;</li>
       </ul>
-      <div class='listener state-listener'>
+      <div class='listener position-listener'>
         last rotation request: <pre class='live-data'>..</pre>
       </div>
     </div>
