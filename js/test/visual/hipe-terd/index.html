@@ -17,7 +17,8 @@
           initialRotationDelta: [0.0000, 0.05, 0.000],
           initialRotation: [0, 0, 0],
           debugCoordinates: false,
-          rotatable: true
+          rotatable: true,
+          recordRotations: true
         });
       });
      //]]>
@@ -97,9 +98,33 @@
       bottom: 0em;
       right: 0em;
     }
+    .data-view-centering-wrap{
+      float:left;
+      position: absolute;
+      left: 50%;
+      top: 60px;
+      text-align: left;
+    }
+    .data-view {
+      border: 3px solid #555;
+      font-family: "VT-100","Andale Mono","Monotype.com", monospace;
+      position:relative;
+      left:-50%;
+      padding: 0 0.5em;
+      background-color: #69c;
+      color: #000;
+    }
    </style>
 </head>
 <body>
+  <!--  format your data view overlay
+  <div class='data-view-centering-wrap'>
+    <div class='data-view'> <span class='live-data'>
+    i am some data
+    i am some more data </span>
+    </div>
+  </div>
+  -->
   <div id="terd-scene-1" class='terd-scene'>
 
     <div class='bounding-box' id='bb-1'>

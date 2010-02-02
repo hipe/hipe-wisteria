@@ -10,6 +10,29 @@
 * Depends:
 * ui.core.js
 *
+* Code & Architecture Conventions:
+*  - tabs are two space characters, no exceptions. no trailing whitespace on
+*    lines.  all files end with exactly one newline.  Lines max 80 chars wide.
+*  - keep dependency on jquery light -- widgets are only for crawling the dom
+*    and interfacing to our controller classes.  these are jquery plugins,
+*    but only superficially.
+*  - never use globals.  never use globals.  window.* namespace is used
+*    only for debugging.  use library pattern for exporting parts of this api.
+*  - all members are private. if you access them know what
+*    you are doing.  methods with leading underscores are private.  members
+*    are named with leading underscores only to differentiate them from
+*    methods with the same name.
+*  - inheiritance hierarchies should never be more than 2 deep.  we are making
+*    javascript software; not a neural network, and certainly not a java app.
+*  - avoid long methods.  methods should fit into one screen.  this makes them
+*    easier both to read/understand and to debug.
+*  - as opposed to a heavy dependence on mixins, make spearate controller
+*    objects for separate functionality. (avoid accidental god objects.)
+*  - comments lie.  comment only when necessary to explain a complex
+*    algorithm or ostensibly questionalble logic. avoid complex algorithms
+*    and ostensibly questionable logic.
+*
+*
 * Thank you's / credits:
 *  This started out as a rewrite of an engine from devirtuoso,
 *    without whose excellently well documented and accessible code
@@ -24,6 +47,7 @@
 *  ddfreyne and Tobias Bühlmann for exposing me to the kinds of
 *  trig that would be necessary for this, and to Tobias
 *  for even benchmarking three possible solutions for me.
+*
 */
 (function($) {
 
@@ -249,6 +273,39 @@
   Angle.xz = Angle.xzPlaneAngleUsingAtan;
 
 
+  // ****** debugging support *******************
+
+  var DataView = function(msg){
+    this.msg = msg;
+    this._init();
+  };
+  DataView.prototype = {
+    _init:function(){
+      this.element = $(
+        "<div class='data-view-centering-wrap'>     "+
+        "  <div class='data-view'>                  "+
+        "    <span class='live-data'>hi</span>      "+
+        "    <br/>                                  "+
+        "    <button class='ok'>ok</button>         "+
+        "  </div>                                   "+
+        "</div>"
+      );
+      this.element.css('display','none');
+      this.element.find('.live-data').html(this.msg);
+      var me = this;
+      this.element.find('button.ok').bind('click',function(e){
+        me.destroy();
+      });
+      $('html body').append(this.element);
+    },
+    show:function(){
+      this.element.show();
+    },
+    destroy: function(){
+      this.element.remove();
+    }
+  };
+
 
   // ****** non-implementation specific modeling & scene classes ***********
 
@@ -282,7 +339,7 @@
       if (opts.positionListener) this._goPosListener(opts);
       this.motionControllers = [];
       if (opts.rotatable) this.motionControllers.push(
-        new RotationController(this, this.opts)
+        new RotationController(this, opts)
       );
       this.sceneController.addModel(this);
     },
@@ -531,6 +588,7 @@
       // find frontmost z value for normalizing mouse drags.
       var idx = this.wireframe.winner(function(a,b){ return a[Z]>b[Z]; });
       this.frontmostZ = this.wireframe[idx][Z];
+      this.doRecordRotations = opts.recordRotations;
     },
     _mouseVector: function(e){
       var v = Vector([e.pageX, e.pageY, this.frontmostZ]);
@@ -538,12 +596,29 @@
       return v;
     },
     mousedown:function(e,f){
-        puts('md _mde'); _mde = e;
       e.stopPropagation();
       this.mouseState = 'down';
-      this.wireframe.pause();
       this.m1 = this._mouseVector(e);
+      this._startInteractiveRotationSession();
       return false;
+    },
+    _startInteractiveRotationSession: function(){
+      this.wireframe.pause();
+      if (this.doRecordRotations){
+        this.recordings = [
+          {type:'mousedown',vector: this.m1}
+        ];
+        var me = this;
+        // we want to overwrite this at the beginning of each
+        // session in case there are others
+        window._view = function(){
+          new DataView(me.json().stringify(me.recordings)).show();
+        };
+      }
+    },
+    json: function(){
+      if (!window.JSON) return fatal("no native JSON implementation.");
+      return window.JSON;
     },
     mousemove: function(e,f){
       if ('down'!==this.mouseState) return false; // @todo false?
@@ -560,6 +635,17 @@
         stateAfterRotation: 'paused',
         m2:m2
       };
+      if (this.doRecordRotations) {
+        var rotReqSubset = { // don't jsonify 'requester' etc
+          rotationDelta:rotationRequest.rotationDelta,
+          m2:rotationRequest.m2
+        };
+        this.recordings.push({
+          type:   'mousemove',
+          input: {car: car, m1: m1, m2: m2},
+          rotationRequest: rotReqSubset
+        });
+      }
       this.wireframe.rotationRequest(rotationRequest);
       return false;
     },
@@ -571,6 +657,7 @@
       this.mouseState = 'ready';
       puts('mu _mue'); _mue = e;
       this.wireframe.resume();
+      if (this.doRecordRotations){ puts('recorded. try _view();');}
     }
   };
 
