@@ -212,25 +212,26 @@
       if (!resultPt) resultPt = Vector.fill(3);
 
       // rotate around z (roll)
-      var x2 = pt[0] * this.cos[2]   - pt[1] * this.sin[2];
-      var y2 = pt[0] * this.sin[2]   + pt[1] * this.cos[2];
+      var x2 = pt[X] * this.cos[Z]   - pt[Y] * this.sin[Z];
+      var y2 = pt[X] * this.sin[Z]   + pt[Y] * this.cos[Z];
 
       // rotate around x (pitch)
-      resultPt[1] = y2 * this.cos[0] - pt[2] * this.sin[0];
-      var z3 = y2 * this.sin[0]      + pt[2] * this.cos[0];
+      resultPt[Y] = y2 * this.cos[X] - pt[Z] * this.sin[X];
+      var z3 = y2 * this.sin[X]      + pt[Z] * this.cos[X];
 
       // rotate around y (yaw)
-      resultPt[2] = z3 * this.cos[1] - x2 * this.sin[1];
-      resultPt[0] = z3 * this.sin[1] + x2 * this.cos[1];
+      resultPt[Z] = z3 * this.cos[Y] - x2 * this.sin[Y];
+      resultPt[X] = z3 * this.sin[Y] + x2 * this.cos[Y];
 
       // as an optim we could take this cond. out & make it zero
       if (null!==this.focalLength) {
         var scaleFactor = this.focalLength /
-          (this.focalLength + resultPt[2]);
-        resultPt[0] *= scaleFactor;
-        resultPt[1] *= scaleFactor;
+          (this.focalLength + resultPt[Z]);
+        resultPt[X] *= scaleFactor;
+        resultPt[Y] *= scaleFactor;
         resultPt.scaleFactor = scaleFactor;
       }
+      if (resultPt.changePositionNotify) resultPt.changePositionNotify();
 
       return resultPt;
     }
@@ -495,9 +496,11 @@
     render: function() {
       if ('ready'!==this.state) return;
       this.rotateTransform.set(this.currentAxisRotation);
-      this.beforeRender();
       this.each(function(pt,idx){
         this.rotateTransform.go(pt, this.screenPoints[idx]);
+      });
+      this.afterRotate();
+      this.each(function(pt,idx){
         this.screenPoints[idx].render();
       });
       this.afterRender();
@@ -515,12 +518,12 @@
       f(this.screenPoints,this);
       return null;
     },
-    beforeRender : function(){}, // @todo
     afterRender  : function(){},
+    afterRotate  : function(){},
     // ugly listener pattern done this way b/c it's in a bottleneck
     hijackMethod:function(name,f){
       switch(name){
-        case 'beforeRender': case 'afterRender': break;
+        case 'afterRotate': case 'afterRender': break;
         default: return fatal("can't hijack method: "+name);
       }
       this[name] = f;
@@ -792,8 +795,8 @@
     render: function(){
       this.element.css({
           fontSize: 100 * this.scaleFactor + '%',
-          left: this[0]+'px',
-          top: this[1]+'px',
+          left: this[X]+'px',
+          top: this[Y]+'px',
           opacity: this.scaleFactor - 0.5
       });
     }
@@ -866,7 +869,7 @@
     return this;
   };
   CssWireframe.Parse.UnitParser.prototype = {
-    unitRe : /^(-?\d(?:\.d+)?)([a-z]+)$/,
+    unitRe : /^(-?\d(?:\.\d+)?)([a-z]+)$/,
     left: function(el){ return this._(el,'left'); },
     top: function(el){ return this._(el,'top'); },
     topAndLeft: function(el){
@@ -1106,12 +1109,14 @@
   ScreenPointSplitterProxy.prototype = {
     isScreenPointSplitterProxy: true,
     render: function(){
+      this.children[0].render();
+      this.children[1].render();
+    },
+    changePositionNotify:function(){
       this.children[0][X] = this.children[1][X] = this[X];
       this.children[0][Y] = this.children[1][Y] = this[Y];
       this.children[0].scaleFactor = this.children[1].scaleFactor =
         this.scaleFactor;
-      this.children[0].render();
-      this.children[1].render();
     }
   };
 
@@ -1159,8 +1164,8 @@
       if (this.doHijackScreenPoints) {
         var wireframe = this.model.wireframe;
         var me = this;
-        wireframe.hijackMethod('beforeRender',function(){
-          me._beforeRender();});
+        wireframe.hijackMethod('afterRotate',function(){
+          me._afterRotate();});
 
         me.screenPoints = new Vector(new Array(wireframe.length));
         wireframe.hijackScreenPoints(function(screenPoints, innatePoints){
@@ -1183,22 +1188,46 @@
         });
       }
     },
-    _beforeRender:function(){
+    _afterRotate:function(){
       //this.context.fillStyle = this.dimensions.color;
       this.context.beginPath();
       this.context.clearRect(0,0,
         this.dimensions.width,this.dimensions.height);
+      this.polygons.each(function(poly){poly.render();});
     }
   };
 
-  var CanvasPoly = function(name,meta,pointsByName){
+  var CanvasArc = function(){};
+  CanvasArc.prototype = {
+    render: function(){
+      //color, startScreenPoint, targetScreenPoint
+      var ctx = this.startScreenPoint.context;
+      ctx.strokeStyle = this.color;
+      ctx.lineWidth = this.lineWidth;
+      ctx.beginPath();
+      var stPt = this.startScreenPoint;
+      var endPt = this.targetScreenPoint;
+      ctx.moveTo(stPt[X]+stPt.offset[X],stPt[Y]+stPt.offset[Y]);
+      ctx.lineTo(endPt[X]+endPt.offset[X],endPt[Y]+endPt.offset[Y]);
+      ctx.stroke();
+    }
+  };
+
+  var CanvasPoly = function(name,meta,pointsByName,canvasController){
     meta.polyName = name;
     meta.pointsByName = pointsByName;
     extend(meta, CanvasPoly.prototype);
-    this.idxsWithThickness = [];
+    meta.idxsWithThickness = [];
+    meta.context = canvasController.context;
     return meta;
   };
   CanvasPoly.prototype = {
+    render:function(){
+      for(var i=0; i<this.idxsWithThickness.length; i++){
+        var arc = this[this.idxsWithThickness[i]];
+        arc.render();
+      }
+    },
     hasArcsWithThickness: function(){
       return (0 < this.idxsWithThickness.length);
     },
@@ -1214,7 +1243,12 @@
           "referred to as '"+arcMeta.targetName);
         }
         arcMeta.targetScreenPoint = this.pointsByName[arcMeta.targetName];
-        if (arcMeta.hasThickness) this.idxsWithThickness.push(idx);
+        if (arcMeta.hasThickness) {
+          this.idxsWithThickness.push(idx);
+          extend(arcMeta, CanvasArc.prototype);
+          arcMeta.color = arcMeta.el.css('color');
+          arcMeta.lineWidth = 2; // todo
+        }
         // things you could delete: pointName, polyName, targetName, el
         // things you want to keep: hasThickness
         return null;
@@ -1298,7 +1332,8 @@
       var i;
       for (name in polyNameToListOfArcMetas){
         var arcMetas = polyNameToListOfArcMetas[name];
-        var poly = new CanvasPoly(name, arcMetas, screenPtsByName);
+        var poly = new CanvasPoly(name, arcMetas,
+          screenPtsByName, this.controller);
         poly.resolveReferences();
         this.polysList.push(poly);
       }
