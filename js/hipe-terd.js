@@ -320,10 +320,6 @@
         ( Math.PI + atan );
     }
   };
-  Angle.xy = function(pt){ return Angle._positiveFullCircleAngle(pt,X,Y); };
-  Angle.zy = function(pt){ return Angle._positiveFullCircleAngle(pt,Z,Y); };
-  Angle.xz = function(pt){ return Angle._positiveFullCircleAngle(pt,X,Z); };
-
 
   // ****** debugging support *******************
 
@@ -427,6 +423,7 @@
     prototypeFunction: AbstractWireframe,
     init: function(sceneController, model){
       this.model = model;
+      this.screenPoints = null;
       this.sceneController = sceneController;
       this._beforeRun = [];
       this._afterRun = [];
@@ -472,7 +469,7 @@
       list(this._afterRun).each(function(f){ f(); });
     },
     pause: function(){this.state='paused'; puts('paused a wf'); },
-    resume: function(){this.state='ready';},
+    resume: function(){this.state='ready'; puts('resumed a wf');},
     currentRotation: function(){return this.currentAxisRotation;},
     rotationRequest: function(request){
       this.mostRecentRotationRequest = request;
@@ -498,16 +495,35 @@
     render: function() {
       if ('ready'!==this.state) return;
       this.rotateTransform.set(this.currentAxisRotation);
+      this.beforeRender();
       this.each(function(pt,idx){
         this.rotateTransform.go(pt, this.screenPoints[idx]);
         this.screenPoints[idx].render();
       });
+      this.afterRender();
       if (this.mostRecentRotationRequest) {
         var req = this.mostRecentRotationRequest;
         this.mostRecentRotationRequest = null;
         req.requester.rotationFulfilled(req);
         this.state = req.stateAfterRotation;
       }
+    },
+    hijackScreenPoints: function(f){
+      // we should probably stop the current animation!?
+      // maybe there is no need.
+      if (!this.screenPoints) return fatal("no screenpoints to hijack");
+      f(this.screenPoints,this);
+      return null;
+    },
+    beforeRender : function(){}, // @todo
+    afterRender  : function(){},
+    // ugly listener pattern done this way b/c it's in a bottleneck
+    hijackMethod:function(name,f){
+      switch(name){
+        case 'beforeRender': case 'afterRender': break;
+        default: return fatal("can't hijack method: "+name);
+      }
+      this[name] = f;
     }
   };
 
@@ -565,7 +581,7 @@
     },
     getCamera: function(){ return this.camera; },
     run: function(){
-      if (this.fipsListeners) this.lastPulseAt = 0;
+      if (this.pulseListeners) this.lastPulseAt = 0;
       this.each(function(wireframe){wireframe.beforeRunNotify();});
       this.state = 'running';
       this._renderThisFrameAndTheNextFrame();
@@ -630,29 +646,7 @@
     }
   };
 
-
-
-  //****************** css-specific implementation ********************
-
-  /**
-  * holds a two dimensional point-vector (not really, actually)
-  * and a jQuery handle on the element (li)
-  */
-  var CssScreenPoint = function(el){
-    var me = new Vector([null,null]);
-    me.element = el;
-    return extend(me, CssScreenPoint.prototype);
-  };
-  CssScreenPoint.prototype = {
-    render: function(){
-      this.element.css({
-          fontSize: 100 * this.scaleFactor + '%',
-          left: this[0]+'px',
-          top: this[1]+'px',
-          opacity: this.scaleFactor - 0.5
-      });
-    }
-  };
+  //***************** maybe css-specific maybe not ********************
 
   /** @constructor **/
   var RotationController = function(model,opts){
@@ -675,7 +669,9 @@
       this.doRecordRotations = opts.recordRotations;
     },
     _mouseVector: function(e){
-      var v = Vector([e.pageX, e.pageY, this.frontmostZ]);
+      // it can be bad when frontmostZ is 0
+      var useZ = Math.max(this.frontmostZ, 64);
+      var v = Vector([e.pageX, e.pageY, useZ]);
       v.timeStamp = e.timeStamp;
       return v;
     },
@@ -780,6 +776,29 @@
   };
 
 
+  //****************** css-specific implementation ********************
+
+  /**
+  * holds a two dimensional point-vector (not really, actually)
+  * and a jQuery handle on the element (li)
+  */
+  var CssScreenPoint = function(el){
+    var me = new Vector([null,null]);
+    me.element = el;
+    return extend(me, CssScreenPoint.prototype);
+  };
+  CssScreenPoint.prototype = {
+    render: function(){
+      this.element.css({
+          fontSize: 100 * this.scaleFactor + '%',
+          left: this[0]+'px',
+          top: this[1]+'px',
+          opacity: this.scaleFactor - 0.5
+      });
+    }
+  };
+
+
   var CssWireframe = function(sc, model, opts){
     var ul = opts.ul;
     var li = ul.children(), me;
@@ -790,6 +809,7 @@
     return me;
   };
   CssWireframe.prototype = {
+    isCssWireframe: true,
     init:function(sc, model, opts){
       AbstractWireframe.prototype.init.call(this, sc, model, opts);
         // a parse object has state but we don't keep it:
@@ -1046,7 +1066,137 @@
     }
   };
 
+  // ****** canvas land *******
+
+  // while we decide what to do
+  var InnatePointCssAdapter = {
+    color: function(){return this.element.css('color');},
+    innateRadius: function(){ return 10; }
+  };
+
+  var CanvasScreenPoint = function(context, color, radius, offset){
+    if (!context) return fatal("no context");
+    var me = new Vector([null,null]);
+    me.context = context;
+    me.color = color;
+    me.innateRadius = radius;
+    me.offset = offset;
+    return extend(me, CanvasScreenPoint.prototype);
+  };
+  CanvasScreenPoint.prototype = {
+    render: function(){
+      this.context.fillStyle = this.color;
+      this.context.beginPath();
+      var scaledRadius = this.innateRadius * this.scaleFactor;
+      this.context.arc(
+        this[X] + this.offset[X],
+        this[Y] + this.offset[Y],
+        scaledRadius, 0, Angle.twoPi, true);
+      this.context.fill();   // ctx.stroke();
+    }
+  };
+
+  var ScreenPointSplitterProxy = function(a,b){
+    var me = new Vector(new Array(2));
+    me.children = [a,b];
+    return extend(me, ScreenPointSplitterProxy.prototype);
+  };
+  ScreenPointSplitterProxy.prototype = {
+    isScreenPointSplitterProxy: true,
+    render: function(){
+      this.children[0][X] = this.children[1][X] = this[X];
+      this.children[0][Y] = this.children[1][Y] = this[Y];
+      this.children[0].scaleFactor = this.children[1].scaleFactor =
+        this.scaleFactor;
+      this.children[0].render();
+      this.children[1].render();
+    }
+  };
+
+
+  var CanvasController = function(sc,opts){
+    this._init(sc,opts);
+  };
+  CanvasController.prototype = {
+    _init:function(sc,opts){
+      this.sceneController = sc;
+      this.element = opts.element;
+      if (!this.element[0].getContext) return fatal("no canvas?");
+      this.context = this.element[0].getContext('2d');
+      if (!this.context) return fatal("failed to get canvas context");
+      this.model = opts.model;
+      this._initDimensionsEtc();
+      if (this.model) this._initModel();
+      return null;
+    },
+    _initDimensionsEtc: function(){
+      this.dimensions = {
+        width: this.element.width(),
+        height: this.element.height(),
+        color: this.element.css('background-color')
+      };
+    },
+    _initModel:function(){
+      var el = $(this.model);
+      if (el.length===0) return fatal("model not found: "+this.model);
+      var m = el.data('hipe_terd_model').getModel();
+      this.model = m;
+      this.doHijackScreenPoints = this.model.wireframe.isCssWireframe;
+      this._initScreenPoints();
+      return null;
+    },
+    _initScreenPoints: function(){
+      //var myScreenPoints = new Vector(new Array(length));
+			// we don't do anything with myScreenPoints for now!
+			// yes this actually does something !
+			this.element.attr('height',this.element.height());
+			this.element.attr('width',this.element.width());			
+			this.screenPointOffset = [
+			  this.dimensions.width/2,
+			  this.dimensions.height/2
+			];
+      if (this.doHijackScreenPoints) {
+        var wireframe = this.model.wireframe;
+        var me = this;
+        wireframe.hijackMethod('beforeRender',function(){
+          me._beforeRender();});
+        wireframe.hijackScreenPoints(function(screenPoints, innatePoints){
+          var length = innatePoints.length;
+          for (var i=0; i<length; i++) {
+            var innatePt = innatePoints[i];
+            var yourScreenPoint = screenPoints[i];
+            var myScreenPoint = new CanvasScreenPoint(
+              me.context,
+              InnatePointCssAdapter.color.call(innatePt),
+              InnatePointCssAdapter.innateRadius.call(innatePt),
+              me.screenPointOffset
+            );
+            var splitter =
+              new ScreenPointSplitterProxy(yourScreenPoint,myScreenPoint);
+            screenPoints[i] = splitter;
+          }
+        });
+      }
+    },
+    _beforeRender:function(){
+      //this.context.fillStyle = this.dimensions.color;
+      this.context.beginPath();
+      this.context.clearRect(0,0,
+        this.dimensions.width,this.dimensions.height);
+    }
+  };
+
+
   // ********************* jquery-specific  ***************
+
+  var _getSceneController = function(){
+    var ts = this.element.parents('.terd-scene:eq(0)');
+    if (!ts.length) return fatal("parent scene not found");
+    var sceneController;
+    if (!(sceneController = ts.data('hipe_terd_scene').sceneController))
+      return fatal("scene controller not found");
+    return sceneController;
+  };
 
   $.widget('ui.hipe_terd_scene',{
     _init: function(){
@@ -1058,16 +1208,21 @@
 
   $.widget('ui.hipe_terd_model',{
     _init:function(){
-      var sceneController;
       var sl = this.element.find('.position-listener .live-data');
       if (sl.length) this.options.positionListener = sl;
       this.options.element = $(this.element);
-      var ts = this.element.parents('.terd-scene:eq(0)');
-      if (!ts.length) return fatal("parent scene not found");
-      if (!(sceneController = ts.data('hipe_terd_scene').sceneController))
-        return fatal("scene controller not found");
+      var sceneController = _getSceneController.call(this);
       this.model = new AbstractModel(sceneController, this.options);
-      return null;
+    },
+    getModel:function(){ return this.model; }
+  });
+
+  $.widget('ui.hipe_terd_model_canvas',{
+    _init:function(){
+      var sceneController = _getSceneController.call(this);
+      this.options.element = this.element;
+      this.canvasController =
+        new CanvasController(sceneController, this.options);
     }
   });
 

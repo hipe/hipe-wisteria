@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <title>little benchmarks</title>
+</head>
+<body>
+  <script type="text/javascript">
+    var puts = function(m){ document.writeln(m+"<br/>"); }
+    puts('started');
+    var numtimes = 1e8;
+    f = function(){Math.sin(0.5);};
+    var bool = false;
+    var d1 = new Date().getTime();
+    for (var i=0;i<numtimes;i++){
+      if (bool) {Math.sin(0.5);}
+    }
+    var d2 = new Date().getTime();
+    var dur1 = d2 - d1;
+
+    var d3 = new Date().getTime();
+    for (var i=0;i<numtimes;i++){
+      f();
+    }
+    var d4 = new Date().getTime();
+    var dur2 = d4 - d3;
+    var diff = (dur1/dur2*100).toFixed(3);
+    puts("d1: "+d1+"d2: "+d2+"d3: "+d3+"d4: "+d4);
+    puts("dur1: "+dur1);
+    puts("dur2: "+dur2);
+    puts("bool is "+diff+"% faster than f()");
+
+
+  </script>
+</body>
+</html>
