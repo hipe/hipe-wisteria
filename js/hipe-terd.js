@@ -524,6 +524,7 @@
         default: return fatal("can't hijack method: "+name);
       }
       this[name] = f;
+      return null;
     }
   };
 
@@ -1074,13 +1075,14 @@
     innateRadius: function(){ return 10; }
   };
 
-  var CanvasScreenPoint = function(context, color, radius, offset){
+  var CanvasScreenPoint = function(context, color, radius, offset, innatePt){
     if (!context) return fatal("no context");
     var me = new Vector([null,null]);
     me.context = context;
     me.color = color;
     me.innateRadius = radius;
     me.offset = offset;
+    me.innatePt = innatePt;
     return extend(me, CanvasScreenPoint.prototype);
   };
   CanvasScreenPoint.prototype = {
@@ -1127,6 +1129,8 @@
       this.model = opts.model;
       this._initDimensionsEtc();
       if (this.model) this._initModel();
+      this.polygons = new Vector(new Array());
+      new CanvasPolyParse(this, this.polygons);
       return null;
     },
     _initDimensionsEtc: function(){
@@ -1146,10 +1150,7 @@
       return null;
     },
     _initScreenPoints: function(){
-      //var myScreenPoints = new Vector(new Array(length));
-			// we don't do anything with myScreenPoints for now!
-			// yes this actually does something !
-			this.element.attr('height',this.element.height());
+			this.element.attr('height',this.element.height()); // necessary
 			this.element.attr('width',this.element.width());			
 			this.screenPointOffset = [
 			  this.dimensions.width/2,
@@ -1160,6 +1161,8 @@
         var me = this;
         wireframe.hijackMethod('beforeRender',function(){
           me._beforeRender();});
+
+        me.screenPoints = new Vector(new Array(wireframe.length));
         wireframe.hijackScreenPoints(function(screenPoints, innatePoints){
           var length = innatePoints.length;
           for (var i=0; i<length; i++) {
@@ -1169,8 +1172,10 @@
               me.context,
               InnatePointCssAdapter.color.call(innatePt),
               InnatePointCssAdapter.innateRadius.call(innatePt),
-              me.screenPointOffset
+              me.screenPointOffset,
+              innatePt
             );
+            me.screenPoints[i] = myScreenPoint;
             var splitter =
               new ScreenPointSplitterProxy(yourScreenPoint,myScreenPoint);
             screenPoints[i] = splitter;
@@ -1185,6 +1190,121 @@
         this.dimensions.width,this.dimensions.height);
     }
   };
+
+  var CanvasPoly = function(name,meta,pointsByName){
+    meta.polyName = name;
+    meta.pointsByName = pointsByName;
+    extend(meta, CanvasPoly.prototype);
+    this.idxsWithThickness = [];
+    return meta;
+  };
+  CanvasPoly.prototype = {
+    hasArcsWithThickness: function(){
+      return (0 < this.idxsWithThickness.length);
+    },
+    resolveReferences: function(){
+      this.each(function(arcMeta,idx){
+        if (!this.pointsByName[arcMeta.pointName]) {
+          return fatal("for polygon "+this.polyName+" can't find point "+
+          "referred to as '"+arcMeta.pointName);
+        }
+        arcMeta.startScreenPoint = this.pointsByName[arcMeta.pointName];
+        if (!this.pointsByName[arcMeta.targetName]) {
+          return fatal("for polygon "+this.polyName+" can't find point "+
+          "referred to as '"+arcMeta.targetName);
+        }
+        arcMeta.targetScreenPoint = this.pointsByName[arcMeta.targetName];
+        if (arcMeta.hasThickness) this.idxsWithThickness.push(idx);
+        // things you could delete: pointName, polyName, targetName, el
+        // things you want to keep: hasThickness
+        return null;
+      });
+    }
+  };
+
+  var CanvasPolyParse = function(canvasController, polysList){
+    this.controller = canvasController;
+    this.polysList = polysList;
+    this.go();
+  };
+  CanvasPolyParse.prototype = {
+    // anchorName, targetName, hasThickness, polyName
+    parseAnchor: function(el){
+      el = $(el);
+      var tree = {el: el};
+      if (''!==el.html().trim()) return null;
+      var name=el.attr('name'), href=el.attr('href'), klass=el.attr('class');
+      if (''!==name) { tree.anchorName = name; }
+      if (undefined!==href) {
+        var m = (/^#(.+)$/.exec(href));
+        if (!m) return fatal("failed to parse href: "+href);
+        tree.targetName = m[1];
+      }
+      if (''!==klass) {
+        if (/\barc\b/.exec(klass)) tree.hasThickness = true;
+        if ((m=/\b(poly-\w+)\b/.exec(klass))) tree.polyName = m[1];
+      }
+      return tree;
+    },
+    populatePolysMeta: function(pt,idx,polyNameToListOfArcMetas){
+      var theNameOfThisPoint = null;
+      var me = this;
+      var anchors =  pt.innatePt.element.find('a');
+      var references = [];
+      anchors.each(function(idx){
+        var tree = me.parseAnchor(this);
+        if (tree.anchorName) {
+          if (theNameOfThisPoint) return fatal(
+            tree.anchorName+" conflicts with "+theNameOfThisPoint);
+          theNameOfThisPoint = tree.anchorName;
+        }
+        if (tree.targetName) {
+          if (!tree.polyName) return fatal("for now poly- name required"+
+          " for link to "+tree.targetName);
+          if (!polyNameToListOfArcMetas[tree.polyName])
+            polyNameToListOfArcMetas[tree.polyName] = new Vector(new Array());
+          polyNameToListOfArcMetas[tree.polyName].push(tree);
+          references.push(tree);
+        }
+        return null;
+      });
+      if (!theNameOfThisPoint && references.length>0)
+        return fatal(
+        "couldn't find an anchor tag with a name for the ul at index "+idx+
+        ".  Beginning of html: "+pt.innatePt.element.html().substr(0,60)
+        );
+      list(references).each(function(tree){
+        tree.pointName = theNameOfThisPoint;
+      });
+      return theNameOfThisPoint;
+    },
+    go: function(){
+      var screenPtsByName = {};
+      var polyNameToListOfArcMetas = {};
+      var me = this;
+      this.controller.screenPoints.each(function(pt,idx){
+        var pointName = me.populatePolysMeta(pt,idx,polyNameToListOfArcMetas);
+        if (!pointName) return null;
+        if (screenPtsByName[pointName])
+          return fatal("name reused: "+pointName);
+        screenPtsByName[pointName] = pt;
+        return null;
+      });
+      this.setPolysFromParseData(screenPtsByName, polyNameToListOfArcMetas);
+      return null;
+    },
+    setPolysFromParseData: function(
+      screenPtsByName, polyNameToListOfArcMetas){
+      var i;
+      for (name in polyNameToListOfArcMetas){
+        var arcMetas = polyNameToListOfArcMetas[name];
+        var poly = new CanvasPoly(name, arcMetas, screenPtsByName);
+        poly.resolveReferences();
+        this.polysList.push(poly);
+      }
+    }
+  };
+
 
 
   // ********************* jquery-specific  ***************
